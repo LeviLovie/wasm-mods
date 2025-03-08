@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use common::{ModContext, ModInfo, ModInterface};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use tracing::{info, info_span};
+use tracing::{debug, debug_span, info};
 use wasmtime::{
     component::{Component, Instance, Linker},
     Engine, Store,
@@ -32,7 +32,7 @@ wasmtime::component::bindgen!("host" in "../../wit/host.wit");
 
 impl Host_Imports for ComponentRunStates {
     fn print(&mut self, msg: String) -> () {
-        info!("{}", msg);
+        println!("{}", msg);
         ()
     }
 }
@@ -49,8 +49,17 @@ impl ModLoader {
     }
 
     pub fn load_mod(&self, path: &Path, _context: &ModContext) -> Result<ModInfo> {
-        let span = info_span!("load_mod", path = path.to_str().unwrap());
+        let span = debug_span!(
+            "load_mod",
+            file = path
+                .file_name()
+                .unwrap()
+                .to_os_string()
+                .into_string()
+                .unwrap()
+        );
         let _guard = span.enter();
+        debug!("Loading mod: {}", path.display());
 
         let mut store = Store::new(
             &self.engine,
@@ -72,36 +81,9 @@ impl ModLoader {
         let mut linker = Linker::<ComponentRunStates>::new(&self.engine);
         Host_::add_to_linker(&mut linker, |state| state)?;
 
-        //let print_func = |msg: String| {
-        //    info!("{}", msg);
-        //};
-        //Host_::add_to_linker(&mut linker, |linker| {
-        //    // Create a store-independent implementation
-        //    linker.func_wrap(
-        //        "example:host",
-        //        "print",
-        //        move |caller: Caller<'_, T>, msg: String| {
-        //            print_func(msg);
-        //            Ok(())
-        //        },
-        //    )?;
-        //    Ok(())
-        //})?;
-
         let instance = linker
             .instantiate(&mut store, &main_component)
             .with_context(|| format!("Failed to instantiate WASM module: {}", path.display()))?;
-
-        //let func = instance
-        //    .get_typed_func::<(), ()>(&mut store, "init")
-        //    .with_context(|| format!("Failed to get init function: {}", path.display()))?;
-        //let result = func.call(&mut store, ()).with_context(|| {
-        //    format!(
-        //        "Failed to call init function for module: {}",
-        //        path.display()
-        //    )
-        //})?;
-        //info!("Result of init function: {:?}", result);
 
         // Rest of your code...
         let mod_info = ModInfo {
@@ -114,15 +96,16 @@ impl ModLoader {
 
         // Create a mod wrapper that handles the WASM instance
         let mod_wrapper = WasmModWrapper {
-            _instance: instance,
-            _store: store,
+            instance,
+            store,
             info: mod_info.clone(),
         };
 
         // Register the mod
         let mut registry = self.registry.lock().unwrap();
-        registry.register_mod(&mod_info.id, Box::new(mod_wrapper));
+        registry.register_mod(&mod_info.id, Box::new(mod_wrapper))?;
 
+        info!("Loaded mod: {}", mod_info.name);
         Ok(mod_info)
     }
 
@@ -141,27 +124,24 @@ impl ModLoader {
 
 // A wrapper to handle WASM module instances
 struct WasmModWrapper {
-    _instance: Instance,
-    _store: Store<ComponentRunStates>,
+    instance: Instance,
+    store: Store<ComponentRunStates>,
     info: ModInfo,
 }
 
 impl ModInterface for WasmModWrapper {
     fn init(&mut self, _context: ModContext) -> Result<(), String> {
-        //let init = match self
-        //    .instance
-        //    .get_typed_func::<(), ()>(&mut self.store, "init")
-        //{
-        //    Ok(init) => init,
-        //    Err(e) => return Err(format!("Failed to get init function: {}", e)),
-        //};
-        //match init
-        //    .call(&mut self.store, ())
-        //    .with_context(|| format!("Failed to initialize mod: {}", self.info.name))
-        //{
-        //    Ok(_) => (),
-        //    Err(e) => return Err(format!("Failed to initialize mod: {}", e)),
-        //}
+        // Call MyHost::run from exported function
+        let run = self
+            .instance
+            .get_typed_func::<(), (u32,)>(&mut self.store, "run")
+            .with_context(|| format!("Failed to get run function: {}", self.info.name))
+            .map_err(|e| format!("Failed to get run function: {}", e))?;
+        let result = run
+            .call(&mut self.store, ())
+            .with_context(|| format!("Failed to run mod: {}", self.info.name))
+            .map_err(|e| format!("Failed to run mod: {}", e))?;
+        println!("Result: {}", result.0);
 
         Ok(())
     }
