@@ -1,0 +1,14 @@
+[package]
+name = "mod-manager"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common = { path = "../common" }
+wasm-bindgen = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+wasmtime = "15.0.1"
+notify = { workspace = true }

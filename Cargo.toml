@@ -1,0 +1,48 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/*",
+    "mods/*",
+]
+exclude = [
+    "crates",
+]
+
+[workspace.dependencies]
+wasm-bindgen = "0.2.89"
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
+anyhow = "1.0.75"
+notify = "8.0.0"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+
+[package]
+name = "wasmtime_mods"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+common = { path = "crates/common" }
+mod-manager = { path = "crates/mod-manager" }
+
+wasm-bindgen = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[build-dependencies]
+notify = { workspace = true }
+anyhow = { workspace = true }
+walkdir = "2.4.0"
+cargo_metadata = "0.18.1"
+
+[profile.release]
+opt-level = 3
+lto = true
+
+[profile.dev.package."*"]
+opt-level = 1
