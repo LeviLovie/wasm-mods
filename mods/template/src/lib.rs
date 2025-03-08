@@ -1,20 +1,15 @@
 wit_bindgen::generate!({
-    // the name of the world in the `*.wit` input file
     world: "host",
     path: "../../wit/host.wit",
 });
 
-// Define a custom type and implement the generated `Guest` trait for it which
-// represents implementing all the necessary exported interfaces for this
-// component.
-struct MyHost;
+struct Host;
 
-impl Guest for MyHost {
-    fn run() {
+impl Guest for Host {
+    fn run() -> u32 {
         print("Hello, world!");
+        42
     }
 }
 
-// export! defines that the `MyHost` struct defined below is going to define
-// the exports of the `world`, namely the `run` function.
-export!(MyHost);
+export!(Host);

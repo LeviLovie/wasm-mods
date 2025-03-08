@@ -7,7 +7,7 @@ use loader::ModLoader;
 use registry::ModRegistry;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use tracing::{debug, error, info, info_span, warn};
+use tracing::{debug, debug_span, error, info, warn};
 
 pub struct ModManager {
     registry: Arc<Mutex<ModRegistry>>,
@@ -30,7 +30,7 @@ impl ModManager {
     }
 
     pub fn load_all_mods(&mut self) -> Result<()> {
-        let span = info_span!("load_all_mods");
+        let span = debug_span!("load_all_mods");
         let _guard = span.enter();
         let start_instant = std::time::Instant::now();
 
@@ -52,7 +52,7 @@ impl ModManager {
             let path = entry.path();
 
             if path.is_file() && path.extension().map_or(false, |ext| ext == "wasm") {
-                self.load_mod(&path)?;
+                self.load_mod(&path);
             }
         }
 
@@ -64,21 +64,18 @@ impl ModManager {
         Ok(())
     }
 
-    pub fn load_mod(&mut self, path: &Path) -> Result<ModInfo> {
-        let span = info_span!("load_mod", path = path.to_str().unwrap());
-        let _guard = span.enter();
-
-        let mod_info = self.loader.load_mod(path, &self.context)?;
-        info!("Loaded mod: {}", mod_info.name);
-        Ok(mod_info)
+    pub fn load_mod(&mut self, path: &Path) -> ModInfo {
+        match self.loader.load_mod(path, &self.context) {
+            Ok(info) => info,
+            Err(err) => {
+                error!("Error loading mod: {}", err);
+                panic!();
+            }
+        }
     }
 
     pub fn unload_mod(&mut self, mod_id: &str) -> Result<()> {
-        let span = info_span!("unload_mod", mod_id = mod_id);
-        let _guard = span.enter();
-
         self.loader.unload_mod(mod_id)?;
-        info!("Unloaded mod: {}", mod_id);
         Ok(())
     }
 
@@ -109,5 +106,18 @@ impl ModManager {
     pub fn get_mod_count(&self) -> usize {
         let registry = self.registry.lock().unwrap();
         registry.get_all_mods().len()
+    }
+
+    pub fn call_init(&mut self) -> Result<()> {
+        let mut registry = self.registry.lock().unwrap();
+        for (_, mod_instance) in registry.mods_mut_iter() {
+            match mod_instance.init(self.context.clone()) {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Error initializing mod: {}", err);
+                }
+            }
+        }
+        Ok(())
     }
 }
