@@ -30,7 +30,11 @@ impl ModManager {
     }
 
     pub fn load_all_mods(&mut self) -> Result<()> {
-        let mods_path = Path::new(&self.mods_dir);
+        let mods_path = std::env::current_exe()
+            .with_context(|| "Failed to get current executable path")?
+            .parent()
+            .with_context(|| "Failed to get parent directory of executable")?
+            .join(self.mods_dir.clone());
         if !mods_path.exists() {
             warn!("Mods directory doesn't exist: {}", self.mods_dir);
             return Ok(());

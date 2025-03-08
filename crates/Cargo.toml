@@ -2,8 +2,7 @@
 resolver = "2"
 members = [
     "common",
-    "mod-manager",
-    "mod-macros"
+    "mod-manager"
 ]
 
 [workspace.dependencies]

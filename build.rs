@@ -59,7 +59,7 @@ fn build_all_mods() -> Result<()> {
             .args([
                 "build",
                 "--target",
-                "wasm32-unknown-unknown",
+                "wasm32-wasip1",
                 "--release",
                 "--package",
                 &package.name,
@@ -77,15 +77,22 @@ fn build_all_mods() -> Result<()> {
 
         let wasm_file = metadata
             .target_directory
-            .join("wasm32-unknown-unknown/release")
+            .join("wasm32-wasip1/release")
             .join(format!("{}.wasm", package.name.replace('-', "_")));
 
         if wasm_file.exists() {
-            let dest = target_dir.join(format!("{}.wasm", package.name));
+            let profile = env::var("PROFILE").unwrap();
+            let dest = target_dir
+                .parent()
+                .unwrap()
+                .join(profile)
+                .join("wasm")
+                .join(format!("{}.wasm", package.name));
+            std::fs::create_dir_all(dest.parent().unwrap())?;
             std::fs::copy(&wasm_file, &dest)?;
-            println!("Copied mod to: {:?}", dest);
+            p!("Copied mod to: {:?}", dest);
         } else {
-            println!("Warning: Could not find built WASM file at {:?}", wasm_file);
+            p!("Warning: Could not find built WASM file at {:?}", wasm_file);
         }
     }
 

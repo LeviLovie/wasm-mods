@@ -10,5 +10,7 @@ anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
-wasmtime = "15.0.1"
+wasmtime = { version = "30.0.2", features = ["component-model"] }
 notify = { workspace = true }
+wasmtime-wasi = "30.0.2"
+wasi-common = "30.0.2"

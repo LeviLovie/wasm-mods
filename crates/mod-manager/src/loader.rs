@@ -2,9 +2,32 @@ use anyhow::{Context, Result};
 use common::{ModContext, ModInfo, ModInterface};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use wasmtime::{Engine, Instance, Module, Store};
+use tracing::{info, info_span};
+use wasmtime::{Engine, Instance, Store};
+use wasmtime_wasi::{add_to_linker_sync, IoView, ResourceTable, WasiCtx, WasiView};
 
 use crate::registry::ModRegistry;
+
+pub struct ComponentRunStates {
+    // These two are required basically as a standard way to enable the impl of IoView and
+    // WasiView.
+    // impl of WasiView is required by [`wasmtime_wasi::add_to_linker_sync`]
+    pub wasi_ctx: WasiCtx,
+    pub resource_table: ResourceTable,
+    // You can add other custom host states if needed
+}
+
+impl IoView for ComponentRunStates {
+    fn table(&mut self) -> &mut ResourceTable {
+        &mut self.resource_table
+    }
+}
+
+impl WasiView for ComponentRunStates {
+    fn ctx(&mut self) -> &mut WasiCtx {
+        &mut self.wasi_ctx
+    }
+}
 
 pub struct ModLoader {
     engine: Engine,
@@ -21,28 +44,34 @@ impl ModLoader {
         let wasm_bytes = std::fs::read(path)
             .with_context(|| format!("Failed to read WASM file: {}", path.display()))?;
 
-        let module = Module::new(&self.engine, wasm_bytes)
+        let module = wasmtime::Module::new(&self.engine, wasm_bytes)
             .with_context(|| format!("Failed to compile WASM module: {}", path.display()))?;
 
-        let mut store = Store::new(&self.engine, ());
-        let instance = Instance::new(&mut store, &module, &[])
+        let wasi_ctx = wasmtime_wasi::WasiCtxBuilder::new().inherit_stdio().build();
+        let resource_table = ResourceTable::new();
+        let state = ComponentRunStates {
+            wasi_ctx,
+            resource_table,
+        };
+
+        let mut store = wasmtime::Store::new(&self.engine, state);
+
+        let mut linker = wasmtime::Linker::new(&self.engine);
+        add_to_linker_sync(&mut linker).context("Failed to add WASI to linker")?;
+
+        // Instantiate the module
+        let instance = linker
+            .instantiate(&mut store, &module)
             .with_context(|| format!("Failed to instantiate WASM module: {}", path.display()))?;
 
-        // Extract the ModInterface implementation
-        // This is a simplified version - in reality you'd need to use wasm-bindgen
-        // to properly communicate between the host and WASM modules
-        let get_info = instance.get_typed_func::<(), i32>(&mut store, "get_info")?;
-        let ptr = get_info.call(&mut store, ())?;
-
-        let memory = instance.get_memory(&mut store, "memory").unwrap();
-        let data = memory.data(&store);
-        let json_bytes = &data[ptr as usize..ptr as usize + 256]; // Assume max 256 bytes
-        let mod_info: ModInfo = serde_json::from_slice(json_bytes).unwrap();
-
-        // Initialize the mod
-        let init = instance.get_typed_func::<(), ()>(&mut store, "init")?;
-        init.call(&mut store, ())
-            .with_context(|| format!("Failed to initialize mod: {}", mod_info.name))?;
+        // Rest of your code...
+        let mod_info = ModInfo {
+            id: "test".to_string(),
+            name: "Test Mod".to_string(),
+            version: "1.0".to_string(),
+            author: "No name".to_string(),
+            description: "A mod".to_string(),
+        };
 
         // Create a mod wrapper that handles the WASM instance
         let mod_wrapper = WasmModWrapper {
@@ -74,7 +103,7 @@ impl ModLoader {
 // A wrapper to handle WASM module instances
 struct WasmModWrapper {
     instance: Instance,
-    store: Store<()>,
+    store: Store<ComponentRunStates>,
     info: ModInfo,
 }
 
