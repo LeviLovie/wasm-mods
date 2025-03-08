@@ -17,10 +17,10 @@ macro_rules! p {
 fn main() -> Result<()> {
     // Always rerun
     println!("cargo:rerun-if-changed=build.rs");
-    p!("Running build script");
     if env::var("WATCH_MODS").is_ok() && env::var("CARGO_CMD").unwrap_or_default() == "run" {
         println!("cargo:rerun-if-changed=mods");
         println!("cargo:rerun-if-changed=crates/common");
+        println!("cargo:rerun-if-changed=wit");
 
         // Build mods first
         build_all_mods()?;
@@ -33,6 +33,7 @@ fn main() -> Result<()> {
         // Always rebuild if any mod or common code changes
         println!("cargo:rerun-if-changed=mods");
         println!("cargo:rerun-if-changed=crates/common");
+        println!("cargo:rerun-if-changed=wit");
         build_all_mods()?;
     }
 
@@ -40,11 +41,19 @@ fn main() -> Result<()> {
 }
 
 fn build_all_mods() -> Result<()> {
-    p!("Building all mods");
     let metadata = get_workspace_metadata()?;
     let mod_packages = find_mod_packages(&metadata)?;
 
-    p!("Building {} mods", mod_packages.len());
+    let mut mods_to_build = Vec::new();
+    for package_id in &mod_packages {
+        let package = metadata
+            .packages
+            .iter()
+            .find(|p| p.id == *package_id)
+            .context("Package not found in metadata")?;
+        mods_to_build.push(package.name.clone());
+    }
+    p!("Building mods: {:?}", mods_to_build);
 
     for package_id in mod_packages {
         let package = metadata
@@ -52,8 +61,6 @@ fn build_all_mods() -> Result<()> {
             .iter()
             .find(|p| p.id == package_id)
             .context("Package not found in metadata")?;
-
-        println!("Building mod: {}", package.name);
 
         let status = Command::new("cargo")
             .args([
@@ -66,19 +73,36 @@ fn build_all_mods() -> Result<()> {
             ])
             .status()
             .context("Failed to execute cargo build")?;
-
         if !status.success() {
             anyhow::bail!("Failed to build mod: {}", package.name);
+        }
+        let build_dir_path = env::current_dir()
+            .unwrap()
+            .join("target")
+            .join("wasm32-wasip1")
+            .join("release")
+            .join(package.name.replace("-", "_"));
+        let build_file_path = format!("{}.wasm", build_dir_path.to_str().unwrap());
+        let component_file_path = format!("{}_comp.wasm", build_dir_path.to_str().unwrap());
+        let status = Command::new("wasm-tools")
+            .args([
+                "component",
+                "new",
+                &build_file_path,
+                "--output",
+                &component_file_path,
+            ])
+            .status()
+            .context("Failed to execute wasm-tools strip")?;
+        if !status.success() {
+            anyhow::bail!("Failed to strip mod: {}", package.name);
         }
 
         // Copy the built WASM file to the target/wasm directory
         let target_dir = metadata.target_directory.join("wasm");
         std::fs::create_dir_all(&target_dir)?;
 
-        let wasm_file = metadata
-            .target_directory
-            .join("wasm32-wasip1/release")
-            .join(format!("{}.wasm", package.name.replace('-', "_")));
+        let wasm_file = Path::new(&component_file_path);
 
         if wasm_file.exists() {
             let profile = env::var("PROFILE").unwrap();
@@ -90,9 +114,8 @@ fn build_all_mods() -> Result<()> {
                 .join(format!("{}.wasm", package.name));
             std::fs::create_dir_all(dest.parent().unwrap())?;
             std::fs::copy(&wasm_file, &dest)?;
-            p!("Copied mod to: {:?}", dest);
         } else {
-            p!("Warning: Could not find built WASM file at {:?}", wasm_file);
+            p!("Could not find built WASM file at {:?}", wasm_file);
         }
     }
 
@@ -124,8 +147,6 @@ fn setup_mod_watcher() -> Result<()> {
     let mut last_builds: HashSet<PathBuf> = HashSet::new();
     let debounce_time = Duration::from_secs(2);
     let mut last_build_time = Instant::now() - debounce_time;
-
-    println!("Watching for changes in mods directory...");
 
     // Event loop
     loop {
@@ -226,7 +247,6 @@ fn find_mod_packages(metadata: &Metadata) -> Result<Vec<cargo_metadata::PackageI
 
     for package in &metadata.packages {
         if package.manifest_path.starts_with(mods_dir_str) {
-            p!("Found mod package: {}", package.name);
             // Don't include the virtual package
             if package.name != "mods-virtual" {
                 mod_packages.push(package.id.clone());

@@ -7,7 +7,7 @@ use loader::ModLoader;
 use registry::ModRegistry;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, info_span, warn};
 
 pub struct ModManager {
     registry: Arc<Mutex<ModRegistry>>,
@@ -30,13 +30,18 @@ impl ModManager {
     }
 
     pub fn load_all_mods(&mut self) -> Result<()> {
+        let span = info_span!("load_all_mods");
+        let _guard = span.enter();
+        let start_instant = std::time::Instant::now();
+
         let mods_path = std::env::current_exe()
             .with_context(|| "Failed to get current executable path")?
             .parent()
             .with_context(|| "Failed to get parent directory of executable")?
             .join(self.mods_dir.clone());
+        debug!("WASM directory: {}", mods_path.display());
         if !mods_path.exists() {
-            warn!("Mods directory doesn't exist: {}", self.mods_dir);
+            warn!("WASM directory doesn't exist: {}", self.mods_dir);
             return Ok(());
         }
 
@@ -51,17 +56,27 @@ impl ModManager {
             }
         }
 
-        info!("Loaded {} mods", self.get_mod_count());
+        info!(
+            "Loaded {} mods in {}ms",
+            self.get_mod_count(),
+            (start_instant.elapsed().as_micros() / 100) as f32 / 10.0
+        );
         Ok(())
     }
 
     pub fn load_mod(&mut self, path: &Path) -> Result<ModInfo> {
+        let span = info_span!("load_mod", path = path.to_str().unwrap());
+        let _guard = span.enter();
+
         let mod_info = self.loader.load_mod(path, &self.context)?;
         info!("Loaded mod: {}", mod_info.name);
         Ok(mod_info)
     }
 
     pub fn unload_mod(&mut self, mod_id: &str) -> Result<()> {
+        let span = info_span!("unload_mod", mod_id = mod_id);
+        let _guard = span.enter();
+
         self.loader.unload_mod(mod_id)?;
         info!("Unloaded mod: {}", mod_id);
         Ok(())
@@ -94,11 +109,5 @@ impl ModManager {
     pub fn get_mod_count(&self) -> usize {
         let registry = self.registry.lock().unwrap();
         registry.get_all_mods().len()
-    }
-
-    pub fn setup_hot_reload(&self) -> Result<()> {
-        // Set up file watcher for hot-reloading mods
-        // This is a simple implementation - the build.rs script handles the actual rebuilding
-        Ok(())
     }
 }

@@ -3,18 +3,17 @@ use common::{ModContext, ModInfo, ModInterface};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tracing::{info, info_span};
-use wasmtime::{Engine, Instance, Store};
-use wasmtime_wasi::{add_to_linker_sync, IoView, ResourceTable, WasiCtx, WasiView};
+use wasmtime::{
+    component::{Component, Instance, Linker},
+    Engine, Store,
+};
+use wasmtime_wasi::{IoView, ResourceTable, WasiCtx, WasiView};
 
 use crate::registry::ModRegistry;
 
 pub struct ComponentRunStates {
-    // These two are required basically as a standard way to enable the impl of IoView and
-    // WasiView.
-    // impl of WasiView is required by [`wasmtime_wasi::add_to_linker_sync`]
     pub wasi_ctx: WasiCtx,
     pub resource_table: ResourceTable,
-    // You can add other custom host states if needed
 }
 
 impl IoView for ComponentRunStates {
@@ -26,6 +25,15 @@ impl IoView for ComponentRunStates {
 impl WasiView for ComponentRunStates {
     fn ctx(&mut self) -> &mut WasiCtx {
         &mut self.wasi_ctx
+    }
+}
+
+wasmtime::component::bindgen!("host" in "../../wit/host.wit");
+
+impl Host_Imports for ComponentRunStates {
+    fn print(&mut self, msg: String) -> () {
+        info!("{}", msg);
+        ()
     }
 }
 
@@ -41,28 +49,59 @@ impl ModLoader {
     }
 
     pub fn load_mod(&self, path: &Path, _context: &ModContext) -> Result<ModInfo> {
+        let span = info_span!("load_mod", path = path.to_str().unwrap());
+        let _guard = span.enter();
+
+        let mut store = Store::new(
+            &self.engine,
+            ComponentRunStates {
+                wasi_ctx: WasiCtx::builder().build(),
+                resource_table: ResourceTable::new(),
+            },
+        );
+
         let wasm_bytes = std::fs::read(path)
             .with_context(|| format!("Failed to read WASM file: {}", path.display()))?;
+        let main_component = Component::new(&self.engine, &wasm_bytes).with_context(|| {
+            format!(
+                "Failed to create component from WASM file: {}",
+                path.display()
+            )
+        })?;
 
-        let module = wasmtime::Module::new(&self.engine, wasm_bytes)
-            .with_context(|| format!("Failed to compile WASM module: {}", path.display()))?;
+        let mut linker = Linker::<ComponentRunStates>::new(&self.engine);
+        Host_::add_to_linker(&mut linker, |state| state)?;
 
-        let wasi_ctx = wasmtime_wasi::WasiCtxBuilder::new().inherit_stdio().build();
-        let resource_table = ResourceTable::new();
-        let state = ComponentRunStates {
-            wasi_ctx,
-            resource_table,
-        };
+        //let print_func = |msg: String| {
+        //    info!("{}", msg);
+        //};
+        //Host_::add_to_linker(&mut linker, |linker| {
+        //    // Create a store-independent implementation
+        //    linker.func_wrap(
+        //        "example:host",
+        //        "print",
+        //        move |caller: Caller<'_, T>, msg: String| {
+        //            print_func(msg);
+        //            Ok(())
+        //        },
+        //    )?;
+        //    Ok(())
+        //})?;
 
-        let mut store = wasmtime::Store::new(&self.engine, state);
-
-        let mut linker = wasmtime::Linker::new(&self.engine);
-        add_to_linker_sync(&mut linker).context("Failed to add WASI to linker")?;
-
-        // Instantiate the module
         let instance = linker
-            .instantiate(&mut store, &module)
+            .instantiate(&mut store, &main_component)
             .with_context(|| format!("Failed to instantiate WASM module: {}", path.display()))?;
+
+        //let func = instance
+        //    .get_typed_func::<(), ()>(&mut store, "init")
+        //    .with_context(|| format!("Failed to get init function: {}", path.display()))?;
+        //let result = func.call(&mut store, ()).with_context(|| {
+        //    format!(
+        //        "Failed to call init function for module: {}",
+        //        path.display()
+        //    )
+        //})?;
+        //info!("Result of init function: {:?}", result);
 
         // Rest of your code...
         let mod_info = ModInfo {
@@ -75,8 +114,8 @@ impl ModLoader {
 
         // Create a mod wrapper that handles the WASM instance
         let mod_wrapper = WasmModWrapper {
-            instance,
-            store,
+            _instance: instance,
+            _store: store,
             info: mod_info.clone(),
         };
 
@@ -102,27 +141,27 @@ impl ModLoader {
 
 // A wrapper to handle WASM module instances
 struct WasmModWrapper {
-    instance: Instance,
-    store: Store<ComponentRunStates>,
+    _instance: Instance,
+    _store: Store<ComponentRunStates>,
     info: ModInfo,
 }
 
 impl ModInterface for WasmModWrapper {
     fn init(&mut self, _context: ModContext) -> Result<(), String> {
-        let init = match self
-            .instance
-            .get_typed_func::<(), ()>(&mut self.store, "init")
-        {
-            Ok(init) => init,
-            Err(e) => return Err(format!("Failed to get init function: {}", e)),
-        };
-        match init
-            .call(&mut self.store, ())
-            .with_context(|| format!("Failed to initialize mod: {}", self.info.name))
-        {
-            Ok(_) => (),
-            Err(e) => return Err(format!("Failed to initialize mod: {}", e)),
-        }
+        //let init = match self
+        //    .instance
+        //    .get_typed_func::<(), ()>(&mut self.store, "init")
+        //{
+        //    Ok(init) => init,
+        //    Err(e) => return Err(format!("Failed to get init function: {}", e)),
+        //};
+        //match init
+        //    .call(&mut self.store, ())
+        //    .with_context(|| format!("Failed to initialize mod: {}", self.info.name))
+        //{
+        //    Ok(_) => (),
+        //    Err(e) => return Err(format!("Failed to initialize mod: {}", e)),
+        //}
 
         Ok(())
     }
@@ -131,25 +170,29 @@ impl ModInterface for WasmModWrapper {
         self.info.clone()
     }
 
-    fn update(&mut self, delta_time: f32) -> Result<(), String> {
-        let update = self
-            .instance
-            .get_typed_func::<f32, ()>(&mut self.store, "update")
-            .map_err(|e| format!("Failed to get update function: {}", e))?;
+    fn update(&mut self, _delta_time: f32) -> Result<(), String> {
+        //let update = self
+        //    .instance
+        //    .get_typed_func::<f32, ()>(&mut self.store, "update")
+        //    .map_err(|e| format!("Failed to get update function: {}", e))?;
+        //
+        //update
+        //    .call(&mut self.store, delta_time)
+        //    .map_err(|e| format!("Failed to update mod: {}", e))
 
-        update
-            .call(&mut self.store, delta_time)
-            .map_err(|e| format!("Failed to update mod: {}", e))
+        Ok(())
     }
 
     fn shutdown(&mut self) -> Result<(), String> {
-        let shutdown = self
-            .instance
-            .get_typed_func::<(), ()>(&mut self.store, "shutdown")
-            .map_err(|e| format!("Failed to get shutdown function: {}", e))?;
+        //let shutdown = self
+        //    .instance
+        //    .get_typed_func::<(), ()>(&mut self.store, "shutdown")
+        //    .map_err(|e| format!("Failed to get shutdown function: {}", e))?;
+        //
+        //shutdown
+        //    .call(&mut self.store, ())
+        //    .map_err(|e| format!("Failed to shutdown mod: {}", e))
 
-        shutdown
-            .call(&mut self.store, ())
-            .map_err(|e| format!("Failed to shutdown mod: {}", e))
+        Ok(())
     }
 }
