@@ -14,7 +14,7 @@ pub fn run() -> Result<(), Error> {
     manager.load_all_mods()?;
 
     //let init_instant = std::time::Instant::now();
-    manager.call_init()?;
+    //manager.call_init()?;
     //for mod_info in manager.get_all_mod_info() {
     //    info!("Mod: {:?}", mod_info);
     //}

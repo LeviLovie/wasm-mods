@@ -2,19 +2,18 @@ package example:host;
 
 world host {
 
-    // record meta {
-    //     none: u32,
-    //     id: string,
-    //     // name: string,
-    //     // version: string,
-    //     // author: string,
-    //     // description: string,
-    // }
+    record meta {
+        none: u32,
+        // id: string,
+        // name: string,
+        // version: string,
+        // author: string,
+        // description: string,
+    }
 
     import print: func(msg: string);
 
-    // export get-info: func() -> meta;
-    export info: func();
+    export info: func() -> meta;
     export init: func();
     export update: func();
     export shutdown: func();

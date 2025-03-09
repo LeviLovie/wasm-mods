@@ -94,12 +94,12 @@ impl ModLoader {
             info: mod_info.clone(),
         };
 
-        //match mod_wrapper.call_info() {
-        //    Ok(_) => {}
-        //    Err(e) => {
-        //        error!("Failed to call info function: {}", e);
-        //    }
-        //}
+        match mod_wrapper.call_info() {
+            Ok(_) => {}
+            Err(e) => {
+                error!("Failed to call info function: {}", e);
+            }
+        }
 
         // Register the mod
         let mut registry = self.registry.lock().unwrap();
