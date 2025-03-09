@@ -30,12 +30,12 @@ impl WasiView for ComponentRunStates {
 
 wasmtime::component::bindgen!("host" in "../../wit/host.wit");
 
-//impl Host_Imports for ComponentRunStates {
-//    fn print(&mut self, msg: String) -> () {
-//        println!("{}", msg);
-//        ()
-//    }
-//}
+impl Host_Imports for ComponentRunStates {
+    fn print(&mut self, msg: String) -> () {
+        println!("{}", msg);
+        ()
+    }
+}
 
 pub struct ModLoader {
     engine: Engine,
@@ -79,7 +79,7 @@ impl ModLoader {
         })?;
 
         let mut linker = Linker::<ComponentRunStates>::new(&self.engine);
-        //Host_::add_to_linker(&mut linker, |state| state)?;
+        Host_::add_to_linker(&mut linker, |state| state)?;
 
         let instance = linker
             .instantiate(&mut store, &main_component)
@@ -131,10 +131,10 @@ struct WasmModWrapper {
 
 impl ModInterface for WasmModWrapper {
     fn init(&mut self, _context: ModContext) -> Result<(), String> {
-        //let host = Host_::new(&mut self.store, &mut self.instance)
-        //    .map_err(|e| format!("Failed to create host binding: {}", e))?;
-        //host.call_on_init(&mut self.store)
-        //    .map_err(|e| format!("Failed to call info function: {}", e))?;
+        let host = Host_::new(&mut self.store, &mut self.instance)
+            .map_err(|e| format!("Failed to create host binding: {}", e))?;
+        host.call_init(&mut self.store)
+            .map_err(|e| format!("Failed to call info function: {}", e))?;
 
         Ok(())
     }
@@ -168,20 +168,18 @@ impl ModInterface for WasmModWrapper {
     }
 
     fn update(&mut self, _delta_time: f32) -> Result<(), String> {
-        //let host = Host_::new(&mut self.store, &self.instance)
-        //    .map_err(|e| format!("Failed to create host binding: {}", e))?;
-        //host.call_on_update(&mut self.store)
-        //    .map_err(|e| format!("Failed to call update function: {}", e))?;
-
+        let host = Host_::new(&mut self.store, &self.instance)
+            .map_err(|e| format!("Failed to create host binding: {}", e))?;
+        host.call_update(&mut self.store)
+            .map_err(|e| format!("Failed to call update function: {}", e))?;
         Ok(())
     }
 
     fn shutdown(&mut self) -> Result<(), String> {
-        //let host = Host_::new(&mut self.store, &self.instance)
-        //    .map_err(|e| format!("Failed to create host binding: {}", e))?;
-        //host.call_on_shutdown(&mut self.store)
-        //    .map_err(|e| format!("Failed to call shutdown function: {}", e))?;
-
+        let host = Host_::new(&mut self.store, &self.instance)
+            .map_err(|e| format!("Failed to create host binding: {}", e))?;
+        host.call_shutdown(&mut self.store)
+            .map_err(|e| format!("Failed to call shutdown function: {}", e))?;
         Ok(())
     }
 }

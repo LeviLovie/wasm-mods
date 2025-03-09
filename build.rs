@@ -248,7 +248,7 @@ fn find_mod_packages(metadata: &Metadata) -> Result<Vec<cargo_metadata::PackageI
     for package in &metadata.packages {
         if package.manifest_path.starts_with(mods_dir_str) {
             // Don't include the virtual package
-            if package.name != "mods-virtual" {
+            if package.name != "mods" {
                 mod_packages.push(package.id.clone());
             }
         }

@@ -1,7 +1,6 @@
 package example:host;
 
 world host {
-    export info: func();
 
     // record meta {
     //     none: u32,
@@ -12,10 +11,11 @@ world host {
     //     // description: string,
     // }
 
-    // import print: func(msg: string);
+    import print: func(msg: string);
 
     // export get-info: func() -> meta;
-    // export on-init: func();
-    // export on-update: func();
-    // export on-shutdown: func();
+    export info: func();
+    export init: func();
+    export update: func();
+    export shutdown: func();
 }

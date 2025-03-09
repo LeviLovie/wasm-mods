@@ -17,13 +17,21 @@ impl Guest for Host {
     //    }
     //}
 
-    fn info() {}
+    fn info() {
+        print("Info");
+    }
 
-    //fn on_init() {}
-    //
-    //fn on_update() {}
-    //
-    //fn on_shutdown() {}
+    fn init() {
+        print("Init");
+    }
+
+    fn update() {
+        print("Update");
+    }
+
+    fn shutdown() {
+        print("Shutdown");
+    }
 }
 
 export!(Host);
