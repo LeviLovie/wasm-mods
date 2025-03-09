@@ -16,6 +16,18 @@ pub mod types {
         pub description: String,
     }
 
+    impl Default for ModInfo {
+        fn default() -> Self {
+            ModInfo {
+                id: "".to_string(),
+                name: "".to_string(),
+                version: "".to_string(),
+                author: "".to_string(),
+                description: "".to_string(),
+            }
+        }
+    }
+
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct ModContext {
         pub game_version: String,
@@ -24,8 +36,9 @@ pub mod types {
 
     // Define the trait that all mods must implement
     pub trait ModInterface {
-        fn init(&mut self, context: ModContext) -> Result<(), String>;
+        fn call_info(&mut self) -> Result<(), String>;
         fn get_info(&self) -> ModInfo;
+        fn init(&mut self, context: ModContext) -> Result<(), String>;
         fn update(&mut self, delta_time: f32) -> Result<(), String>;
         fn shutdown(&mut self) -> Result<(), String>;
     }

@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use common::{ModContext, ModInfo, ModInterface};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use tracing::{debug, debug_span, info};
+use tracing::{debug, debug_span, error, info};
 use wasmtime::{
     component::{Component, Instance, Linker},
     Engine, Store,
@@ -30,12 +30,12 @@ impl WasiView for ComponentRunStates {
 
 wasmtime::component::bindgen!("host" in "../../wit/host.wit");
 
-impl Host_Imports for ComponentRunStates {
-    fn print(&mut self, msg: String) -> () {
-        println!("{}", msg);
-        ()
-    }
-}
+//impl Host_Imports for ComponentRunStates {
+//    fn print(&mut self, msg: String) -> () {
+//        println!("{}", msg);
+//        ()
+//    }
+//}
 
 pub struct ModLoader {
     engine: Engine,
@@ -79,27 +79,27 @@ impl ModLoader {
         })?;
 
         let mut linker = Linker::<ComponentRunStates>::new(&self.engine);
-        Host_::add_to_linker(&mut linker, |state| state)?;
+        //Host_::add_to_linker(&mut linker, |state| state)?;
 
         let instance = linker
             .instantiate(&mut store, &main_component)
             .with_context(|| format!("Failed to instantiate WASM module: {}", path.display()))?;
 
-        // Rest of your code...
-        let mod_info = ModInfo {
-            id: "test".to_string(),
-            name: "Test Mod".to_string(),
-            version: "1.0".to_string(),
-            author: "No name".to_string(),
-            description: "A mod".to_string(),
-        };
+        let mod_info = ModInfo::default();
 
         // Create a mod wrapper that handles the WASM instance
-        let mod_wrapper = WasmModWrapper {
+        let mut mod_wrapper = WasmModWrapper {
             instance,
             store,
             info: mod_info.clone(),
         };
+
+        //match mod_wrapper.call_info() {
+        //    Ok(_) => {}
+        //    Err(e) => {
+        //        error!("Failed to call info function: {}", e);
+        //    }
+        //}
 
         // Register the mod
         let mut registry = self.registry.lock().unwrap();
@@ -131,17 +131,34 @@ struct WasmModWrapper {
 
 impl ModInterface for WasmModWrapper {
     fn init(&mut self, _context: ModContext) -> Result<(), String> {
-        // Call MyHost::run from exported function
-        let run = self
-            .instance
-            .get_typed_func::<(), (u32,)>(&mut self.store, "run")
-            .with_context(|| format!("Failed to get run function: {}", self.info.name))
-            .map_err(|e| format!("Failed to get run function: {}", e))?;
-        let result = run
-            .call(&mut self.store, ())
-            .with_context(|| format!("Failed to run mod: {}", self.info.name))
-            .map_err(|e| format!("Failed to run mod: {}", e))?;
-        println!("Result: {}", result.0);
+        //let host = Host_::new(&mut self.store, &mut self.instance)
+        //    .map_err(|e| format!("Failed to create host binding: {}", e))?;
+        //host.call_on_init(&mut self.store)
+        //    .map_err(|e| format!("Failed to call info function: {}", e))?;
+
+        Ok(())
+    }
+
+    fn call_info(&mut self) -> Result<(), String> {
+        let host = Host_::new(&mut self.store, &self.instance)
+            .map_err(|e| format!("Failed to create host binding: {}", e))?;
+        let result = host
+            .call_info(&mut self.store)
+            .map_err(|e| format!("Failed to call info function: {}", e))?;
+        println!("Result: {:#?}", result);
+
+        self.info = ModInfo {
+            //id: result.id,
+            id: String::from("test"),
+            name: String::from("Test Mod"),
+            version: "1.0".to_string(),
+            author: "No name".to_string(),
+            description: "A mod".to_string(),
+            //name: result.name,
+            //version: result.version,
+            //author: result.author,
+            //description: result.description,
+        };
 
         Ok(())
     }
@@ -151,27 +168,19 @@ impl ModInterface for WasmModWrapper {
     }
 
     fn update(&mut self, _delta_time: f32) -> Result<(), String> {
-        //let update = self
-        //    .instance
-        //    .get_typed_func::<f32, ()>(&mut self.store, "update")
-        //    .map_err(|e| format!("Failed to get update function: {}", e))?;
-        //
-        //update
-        //    .call(&mut self.store, delta_time)
-        //    .map_err(|e| format!("Failed to update mod: {}", e))
+        //let host = Host_::new(&mut self.store, &self.instance)
+        //    .map_err(|e| format!("Failed to create host binding: {}", e))?;
+        //host.call_on_update(&mut self.store)
+        //    .map_err(|e| format!("Failed to call update function: {}", e))?;
 
         Ok(())
     }
 
     fn shutdown(&mut self) -> Result<(), String> {
-        //let shutdown = self
-        //    .instance
-        //    .get_typed_func::<(), ()>(&mut self.store, "shutdown")
-        //    .map_err(|e| format!("Failed to get shutdown function: {}", e))?;
-        //
-        //shutdown
-        //    .call(&mut self.store, ())
-        //    .map_err(|e| format!("Failed to shutdown mod: {}", e))
+        //let host = Host_::new(&mut self.store, &self.instance)
+        //    .map_err(|e| format!("Failed to create host binding: {}", e))?;
+        //host.call_on_shutdown(&mut self.store)
+        //    .map_err(|e| format!("Failed to call shutdown function: {}", e))?;
 
         Ok(())
     }

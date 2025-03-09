@@ -7,6 +7,4 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-common = { path = "../../crates/common" }
-wasm-bindgen = { workspace = true }
 wit-bindgen = "0.40.0"

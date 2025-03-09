@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "crates/*",
-    "mods/*",
+    # "mods/*"
 ]
 exclude = [
     "crates",
@@ -33,6 +33,7 @@ serde_json = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+wit-bindgen = "0.40.0"
 
 [build-dependencies]
 notify = { workspace = true }

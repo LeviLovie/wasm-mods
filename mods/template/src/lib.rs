@@ -6,10 +6,24 @@ wit_bindgen::generate!({
 struct Host;
 
 impl Guest for Host {
-    fn run() -> u32 {
-        print("Hello, world!");
-        42
-    }
+    //fn get_info() -> Meta {
+    //    Meta {
+    //        none: 3,
+    //        id: String::from("template"),
+    //        //name: "Template".to_string(),
+    //        //version: "0.1.0".to_string(),
+    //        //author: "LeviLovie".to_string(),
+    //        //description: "A template mod".to_string(),
+    //    }
+    //}
+
+    fn info() {}
+
+    //fn on_init() {}
+    //
+    //fn on_update() {}
+    //
+    //fn on_shutdown() {}
 }
 
 export!(Host);

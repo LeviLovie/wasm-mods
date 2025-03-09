@@ -1,7 +1,21 @@
 package example:host;
 
 world host {
-    import print: func(msg: string);
+    export info: func();
 
-    export run: func() -> u32;
+    // record meta {
+    //     none: u32,
+    //     id: string,
+    //     // name: string,
+    //     // version: string,
+    //     // author: string,
+    //     // description: string,
+    // }
+
+    // import print: func(msg: string);
+
+    // export get-info: func() -> meta;
+    // export on-init: func();
+    // export on-update: func();
+    // export on-shutdown: func();
 }
