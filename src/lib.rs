@@ -15,10 +15,7 @@ pub fn run() -> Result<(), Error> {
 
     let init_instant = std::time::Instant::now();
     manager.call_init()?;
-    info!(
-        "Initialized 64 mods in {}us",
-        init_instant.elapsed().as_micros()
-    );
+    info!("Initialized in {}us", init_instant.elapsed().as_micros());
 
     Ok(())
 }
