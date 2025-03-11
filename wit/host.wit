@@ -1,10 +1,14 @@
 package example:host;
 
 world host {
+    record string-data {
+        bytes: list<u8>,
+        length: u32,
+    }
 
     record meta {
         none: u32,
-        // id: string,
+        id: string-data,
         // name: string,
         // version: string,
         // author: string,

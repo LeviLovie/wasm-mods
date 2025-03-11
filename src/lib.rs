@@ -1,7 +1,7 @@
 use anyhow::{Error, Result};
 use common::ModContext;
 use mod_manager::ModManager;
-use tracing::info;
+//use tracing::info;
 
 pub fn run() -> Result<(), Error> {
     tracing_subscriber::fmt::init();

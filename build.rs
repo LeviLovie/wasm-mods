@@ -15,27 +15,27 @@ macro_rules! p {
 }
 
 fn main() -> Result<()> {
-    // Always rerun
-    println!("cargo:rerun-if-changed=build.rs");
-    if env::var("WATCH_MODS").is_ok() && env::var("CARGO_CMD").unwrap_or_default() == "run" {
-        println!("cargo:rerun-if-changed=mods");
-        println!("cargo:rerun-if-changed=crates/common");
-        println!("cargo:rerun-if-changed=wit");
-
-        // Build mods first
-        build_all_mods()?;
-
-        // Only set up watchers during development
-        if env::var("CARGO_TASK").unwrap_or_default() == "build" {
-            setup_mod_watcher()?;
-        }
-    } else {
-        // Always rebuild if any mod or common code changes
-        println!("cargo:rerun-if-changed=mods");
-        println!("cargo:rerun-if-changed=crates/common");
-        println!("cargo:rerun-if-changed=wit");
-        build_all_mods()?;
-    }
+    //// Always rerun
+    //println!("cargo:rerun-if-changed=build.rs");
+    //if env::var("WATCH_MODS").is_ok() && env::var("CARGO_CMD").unwrap_or_default() == "run" {
+    //    println!("cargo:rerun-if-changed=mods");
+    //    println!("cargo:rerun-if-changed=crates/common");
+    //    println!("cargo:rerun-if-changed=wit");
+    //
+    //    // Build mods first
+    //    build_all_mods()?;
+    //
+    //    // Only set up watchers during development
+    //    if env::var("CARGO_TASK").unwrap_or_default() == "build" {
+    //        setup_mod_watcher()?;
+    //    }
+    //} else {
+    //    // Always rebuild if any mod or common code changes
+    //    println!("cargo:rerun-if-changed=mods");
+    //    println!("cargo:rerun-if-changed=crates/common");
+    //    println!("cargo:rerun-if-changed=wit");
+    //    build_all_mods()?;
+    //}
 
     Ok(())
 }
@@ -67,7 +67,7 @@ fn build_all_mods() -> Result<()> {
                 "build",
                 "--target",
                 "wasm32-wasip1",
-                "--release",
+                //"--release",
                 "--package",
                 &package.name,
             ])
@@ -246,24 +246,13 @@ fn find_mod_packages(metadata: &Metadata) -> Result<Vec<cargo_metadata::PackageI
     let mods_dir_str = mods_dir.to_str().unwrap();
 
     for package in &metadata.packages {
+        p!("Package: {:?}", package.manifest_path);
         if package.manifest_path.starts_with(mods_dir_str) {
             // Don't include the virtual package
             if package.name != "mods" {
                 mod_packages.push(package.id.clone());
             }
         }
-        //// Check if package is in a subdirectory of "mods" and not the mods workspace itself
-        //if package.manifest_path.as_std_path().starts_with("mods/")
-        //    && !package
-        //        .manifest_path
-        //        .as_std_path()
-        //        .ends_with("mods/Cargo.toml")
-        //{
-        //    // Don't include the virtual package
-        //    if package.name != "mods-virtual" {
-        //        mod_packages.push(package.id.clone());
-        //    }
-        //}
     }
 
     Ok(mod_packages)
