@@ -2,20 +2,21 @@
 resolver = "2"
 members = [
     "crates/*",
-    "mods",
 ]
 exclude = [
     "crates",
+    "mods",
 ]
 
 [workspace.dependencies]
-wasm-bindgen = "0.2.89"
 serde = { version = "1.0.193", features = ["derive"] }
 serde_json = "1.0.108"
 anyhow = "1.0.75"
 notify = "8.0.0"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
+wasm_component_layer = "0.1.16"
+wasmi_runtime_layer = "0.31.0"
 
 [package]
 name = "wasmtime_mods"
@@ -27,13 +28,11 @@ build = "build.rs"
 common = { path = "crates/common" }
 mod-manager = { path = "crates/mod-manager" }
 
-wasm-bindgen = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-wit-bindgen = "0.40.0"
 
 [build-dependencies]
 notify = { workspace = true }

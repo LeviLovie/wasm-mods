@@ -1,7 +1,0 @@
-[package]
-name = "mods"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-template_mod = { path = "./template_mod" }

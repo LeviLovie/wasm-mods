@@ -1,24 +1,9 @@
-package example:host;
+package test:guest;
 
-world host {
-    record string-data {
-        bytes: list<u8>,
-        length: u32,
-    }
+interface foo {
+    select-nth: func(x: list<string>, n: u32) -> string;
+}
 
-    record meta {
-        none: u32,
-        id: string-data,
-        // name: string,
-        // version: string,
-        // author: string,
-        // description: string,
-    }
-
-    import print: func(msg: string);
-
-    export info: func() -> meta;
-    export init: func();
-    export update: func();
-    export shutdown: func();
+world guest {
+    export foo;
 }
