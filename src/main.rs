@@ -18,6 +18,10 @@ fn run() -> Result<(), Error> {
     manager.update_all_mods(1000.0 / 16.0)?;
     info!("Updated in {}us", update_instant.elapsed().as_micros());
 
+    let unload_instant = std::time::Instant::now();
+    manager.unload_all_mods()?;
+    info!("Unloaded in {}us", unload_instant.elapsed().as_micros());
+
     Ok(())
 }
 

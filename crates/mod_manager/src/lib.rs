@@ -73,6 +73,25 @@ impl ModManager {
             .log_msg("Failed to load mod")
     }
 
+    pub fn unload_all_mods(&mut self) -> Result<()> {
+        let span = error_span!("unload_all_mods");
+        let _guard = span.enter();
+
+        let registry = self.registry.lock().unwrap();
+        let mod_ids: Vec<String> = registry
+            .get_all_mods()
+            .into_iter()
+            .map(|(id, _)| id.clone())
+            .collect();
+        drop(registry);
+
+        for id in mod_ids {
+            self.unload_mod(&id)?;
+        }
+
+        Ok(())
+    }
+
     pub fn unload_mod(&mut self, mod_id: &str) -> Result<()> {
         self.loader.unload_mod(mod_id)?;
 
