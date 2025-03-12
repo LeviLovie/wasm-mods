@@ -4,13 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-common = { path = "../common" }
-wasm-bindgen = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
-wasmtime = { version = "30.0.2", features = ["component-model"] }
 notify = { workspace = true }
-wasmtime-wasi = "30.0.2"
-wasi-common = "30.0.2"
+wasm_component_layer = { workspace = true }
+wasmi_runtime_layer = { workspace = true }

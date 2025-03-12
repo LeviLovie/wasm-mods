@@ -1,6 +1,5 @@
 use anyhow::{Error, Result};
-use common::ModContext;
-use mod_manager::ModManager;
+use mod_manager::{ModContext, ModManager};
 use tracing::info;
 
 pub fn run() -> Result<(), Error> {
@@ -15,7 +14,14 @@ pub fn run() -> Result<(), Error> {
 
     let init_instant = std::time::Instant::now();
     manager.call_init()?;
+    for mod_info in manager.get_all_mod_info() {
+        info!("Mod: {:?}", mod_info);
+    }
     info!("Initialized in {}us", init_instant.elapsed().as_micros());
+
+    let update_instant = std::time::Instant::now();
+    manager.update_all_mods(1000.0 / 16.0)?;
+    info!("Updated in {}us", update_instant.elapsed().as_micros());
 
     Ok(())
 }

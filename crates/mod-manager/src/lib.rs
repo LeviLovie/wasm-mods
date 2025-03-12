@@ -1,13 +1,15 @@
 mod loader;
+mod mod_context;
 mod registry;
 
+pub use mod_context::{ModContext, ModInfo, ModInterface};
+
 use anyhow::{Context, Result};
-use common::{ModContext, ModInfo};
 use loader::ModLoader;
 use registry::ModRegistry;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use tracing::{debug, debug_span, error, info, warn};
+use tracing::{debug, debug_span, error, error_span, info, warn};
 
 pub struct ModManager {
     registry: Arc<Mutex<ModRegistry>>,
@@ -89,18 +91,26 @@ impl ModManager {
         Ok(())
     }
 
-    pub fn get_mod_info(&self, mod_id: &str) -> Option<ModInfo> {
+    pub fn get_mod_info(&self, mod_id: &str) -> ModInfo {
         let registry = self.registry.lock().unwrap();
-        registry.get_mod(mod_id).map(|m| m.get_info())
+        let mod_instance: &Box<dyn ModInterface> = registry
+            .get_mod(mod_id)
+            .ok_or("Mod not found")
+            .expect("Mod not found");
+        mod_instance.as_ref().get_info()
     }
 
-    pub fn get_all_mod_info(&self) -> Vec<ModInfo> {
-        let registry = self.registry.lock().unwrap();
-        registry
-            .get_all_mods()
-            .iter()
-            .map(|(_, m)| m.get_info())
-            .collect()
+    pub fn get_all_mod_info(&mut self) -> Vec<ModInfo> {
+        let span = error_span!("get_all_mod_info");
+        let _guard = span.enter();
+
+        let mut registry = self.registry.lock().unwrap();
+        let mut mod_infos = Vec::new();
+        for (_, mod_instance) in registry.mods_mut_iter() {
+            let info = mod_instance.get_info();
+            mod_infos.push(info);
+        }
+        mod_infos
     }
 
     pub fn get_mod_count(&self) -> usize {

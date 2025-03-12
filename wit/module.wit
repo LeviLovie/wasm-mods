@@ -1,0 +1,20 @@
+package module:guest;
+
+interface events {
+    resource data {
+        constructor();
+
+        value: func() -> s32;
+    }
+
+    info: func() -> list<string>;
+}
+
+interface log {
+    log: func(message: string);
+}
+
+world module {
+    import log;
+    export events;
+}
