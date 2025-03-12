@@ -4,7 +4,9 @@ interface events {
     resource data {
         constructor();
 
-        value: func() -> s32;
+        init: func();
+        update: func(delta: f32);
+        shutdown: func();
     }
 
     info: func() -> list<string>;

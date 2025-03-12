@@ -1,22 +1,22 @@
 mod_macros::create_mod!("../../wit/module.wit");
 
-pub struct Data {
-    val: RefCell<i32>,
-}
-
-use std::cell::RefCell;
+pub struct Data {}
 
 impl GuestData for Data {
     fn new() -> Self {
-        let val = 42;
-        log(&format!("Creating new Component with value: {}", val));
-
-        Data {
-            val: RefCell::new(val),
-        }
+        log("Constructing");
+        Data {}
     }
 
-    fn value(&self) -> i32 {
-        *self.val.borrow()
+    fn init(&self) {
+        log("Inititalizing");
+    }
+
+    fn update(&self, delta: f32) {
+        log(&format!("Updating: {}ms", delta));
+    }
+
+    fn shutdown(&self) {
+        log("Shutting down");
     }
 }
