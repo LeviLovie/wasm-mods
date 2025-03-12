@@ -138,13 +138,17 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
         let span = error_span!("init", mod_id = self.info.id.clone());
         let _guard = span.enter();
 
-        let resource_constructor = self
+        let data_constructor = self
             .get_interface()
             .func("[constructor]data")
             .check_log("Unable to get \"data\" constructor from mod")?;
+        let data_init = self
+            .get_interface()
+            .func("[method]data.init")
+            .check_log("Unable to get \"data.init\" from mod")?;
 
         let mut results = vec![Value::Bool(false)];
-        resource_constructor
+        data_constructor
             .call(&mut self.store, &[], &mut results)
             .log()?;
         let resource = match results[0] {
@@ -154,6 +158,10 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
         let borrow_res = resource.borrow(self.store.as_context_mut()).log()?;
         let arguments = vec![Value::Borrow(borrow_res)];
         self.arguments = arguments;
+
+        data_init
+            .call(&mut self.store, &self.arguments, &mut [])
+            .log()?;
 
         Ok(())
     }
@@ -212,27 +220,35 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
         self.info.clone()
     }
 
-    fn update(&mut self, _delta_time: f32) -> Result<(), Error> {
+    fn update(&mut self, delta_time: f32) -> Result<(), Error> {
         let span = error_span!("update", mod_id = self.info.id.clone());
         let _guard = span.enter();
 
-        let method_bar_value = self
+        let method_data_update = self
             .get_interface()
-            .func("[method]data.value")
-            .check_log("Unable to get \"data.value\" from mod")?;
-        let mut results = vec![Value::S32(0)];
-        method_bar_value
-            .call(&mut self.store, &self.arguments, &mut results)
+            .func("[method]data.update")
+            .check_log("Unable to get \"data.update\" from mod")?;
+        let mut arguments = self.arguments.clone();
+        arguments.push(Value::F32(delta_time));
+        method_data_update
+            .call(&mut self.store, &arguments, &mut [])
             .log()?;
-        let _result = match &results[0] {
-            Value::S32(i) => *i,
-            _ => Err(Error::msg("Unexpected result type")).log()?,
-        };
 
         Ok(())
     }
 
     fn shutdown(&mut self) -> Result<(), Error> {
+        let span = error_span!("shutdown", mod_id = self.info.id.clone());
+        let _guard = span.enter();
+
+        let method_data_shutdown = self
+            .get_interface()
+            .func("[method]data.shutdown")
+            .check_log("Unable to get \"data.shutdown\" from mod")?;
+        method_data_shutdown
+            .call(&mut self.store, &self.arguments, &mut [])
+            .log()?;
+
         Ok(())
     }
 }
