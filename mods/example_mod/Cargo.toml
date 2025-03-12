@@ -1,5 +1,7 @@
 [package]
 name = "example_mod"
+description = "Example Mod: An example of how to write a mod"
+authors = ["Bob", "Alice"]
 version = "0.1.0"
 edition = "2021"
 

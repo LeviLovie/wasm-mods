@@ -7,7 +7,7 @@ use std::{
     rc::Rc,
     sync::{Arc, Mutex},
 };
-use tracing::{debug, debug_span, error};
+use tracing::{debug, debug_span, error, info, info_span};
 use wasm_component_layer::*;
 use wasmi_runtime_layer::Engine as WasmEngine;
 
@@ -48,7 +48,7 @@ impl ModLoader {
         };
         let mut linker = Linker::default();
         let host_interface = linker
-            .define_instance("test:guest/log".try_into().unwrap())
+            .define_instance("module:guest/log".try_into().unwrap())
             .unwrap();
 
         host_interface
@@ -63,8 +63,10 @@ impl ModLoader {
                             _ => panic!("Unexpected parameter type"),
                         };
 
-                        println!("[HostLog] log");
-                        println!(" └ {}", params.to_string());
+                        let span = info_span!("mod_log");
+                        let _guard = span.enter();
+
+                        info!("{}", params);
                         Ok(())
                     },
                 ),
@@ -73,7 +75,8 @@ impl ModLoader {
 
         let instance = linker.instantiate(&mut store, &component).unwrap();
         let mod_info = ModInfo::default();
-        let mod_wrapper = WasmModWrapper::new(store, instance, mod_info.clone());
+        let mut mod_wrapper = WasmModWrapper::new(store, instance, mod_info.clone());
+        mod_wrapper.call_info().unwrap();
         let mut registry = self.registry.lock().unwrap();
         registry.register_mod(&mod_info.id, Box::new(mod_wrapper))?;
 
@@ -97,6 +100,7 @@ struct WasmModWrapper<'a> {
     instance: Rc<Instance>,
     interface_cache: RefCell<Option<&'a ExportInstance>>,
     info: ModInfo,
+    arguments: Vec<Value>,
 }
 
 impl<'a> WasmModWrapper<'a> {
@@ -108,6 +112,7 @@ impl<'a> WasmModWrapper<'a> {
             instance: instance_rc,
             interface_cache: RefCell::new(None),
             info,
+            arguments: Vec::new(),
         }
     }
 
@@ -116,7 +121,7 @@ impl<'a> WasmModWrapper<'a> {
             let interface = self
                 .instance
                 .exports()
-                .instance(&"test:guest/foo".try_into().unwrap())
+                .instance(&"module:guest/events".try_into().unwrap())
                 .unwrap();
 
             *self.interface_cache.borrow_mut() = Some(unsafe { std::mem::transmute(interface) });
@@ -128,13 +133,11 @@ impl<'a> WasmModWrapper<'a> {
 
 impl<'a> ModInterface for WasmModWrapper<'a> {
     fn init(&mut self, _context: ModContext) -> Result<(), String> {
-        let resource_constructor = self.get_interface().func("[constructor]bar").unwrap();
-        let method_bar_value = self.get_interface().func("[method]bar.value").unwrap();
-        let method_increment = self.get_interface().func("[method]bar.increment").unwrap();
+        let resource_constructor = self.get_interface().func("[constructor]data").unwrap();
 
         let mut results = vec![Value::Bool(false)];
         resource_constructor
-            .call(&mut self.store, &[Value::S32(42)], &mut results)
+            .call(&mut self.store, &[], &mut results)
             .unwrap();
         let resource = match results[0] {
             Value::Own(ref resource) => resource.clone(),
@@ -142,48 +145,53 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
         };
         let borrow_res = resource.borrow(self.store.as_context_mut()).unwrap();
         let arguments = vec![Value::Borrow(borrow_res)];
-
-        let mut results = vec![Value::S32(0)];
-        method_bar_value
-            .call(&mut self.store, &arguments, &mut results)
-            .unwrap();
-        match results[0] {
-            Value::S32(v) => {
-                println!("[ResultLog]");
-                println!(" └ bar.value() = {}", v);
-                assert_eq!(v, 42);
-            }
-            _ => panic!("Unexpected result type"),
-        }
-
-        let mut results = vec![];
-        method_increment
-            .call(&mut self.store, &arguments, &mut results)
-            .unwrap();
-
-        let mut results = vec![Value::S32(0)];
-        method_bar_value
-            .call(&mut self.store, &arguments, &mut results)
-            .unwrap();
-        match results[0] {
-            Value::S32(v) => {
-                println!("[ResultLog]");
-                println!(" └ bar.value() = {}", v);
-                assert_eq!(v, 43);
-            }
-            _ => panic!("Unexpected result type"),
-        }
+        self.arguments = arguments;
 
         Ok(())
     }
 
     fn call_info(&mut self) -> Result<(), String> {
+        let method_info = self.get_interface().func("info").unwrap();
+
+        let mut results = vec![Value::List(
+            List::new(
+                ListType::new(ValueType::String),
+                vec![
+                    Value::String("example_mod".into()),
+                    Value::String("Example Mod".into()),
+                    Value::String("0.1.0".into()),
+                    Value::String("Example Author".into()),
+                    Value::String("Example Description".into()),
+                ],
+            )
+            .unwrap(),
+        )];
+        method_info
+            .call(&mut self.store, &[], &mut results)
+            .unwrap();
+        let result = match &results[0] {
+            Value::List(list) => {
+                let mut result: Vec<String> = Vec::new();
+                for value in list.iter() {
+                    result.push(match value {
+                        Value::String(str) => (*str).to_string(),
+                        _ => panic!("Unexpected list element type"),
+                    });
+                }
+                result
+            }
+            _ => panic!("Unexpected result type"),
+        };
+        if result.len() != 5 {
+            panic!("Unexpected result length: {}", result.len());
+        }
+
         self.info = ModInfo {
-            id: String::from("test"),
-            name: String::from("Test Mod"),
-            version: "1.0".to_string(),
-            author: "No name".to_string(),
-            description: "A mod".to_string(),
+            id: result[0].clone(),
+            name: result[1].clone(),
+            version: result[2].clone(),
+            author: result[3].clone(),
+            description: result[4].clone(),
         };
 
         Ok(())
@@ -194,6 +202,17 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
     }
 
     fn update(&mut self, _delta_time: f32) -> Result<(), String> {
+        let method_bar_value = self.get_interface().func("[method]data.value").unwrap();
+        let mut results = vec![Value::S32(0)];
+        method_bar_value
+            .call(&mut self.store, &self.arguments, &mut results)
+            .unwrap();
+        let result = match &results[0] {
+            Value::S32(i) => *i,
+            _ => panic!("Unexpected result type"),
+        };
+        info!("Value: {}", result);
+
         Ok(())
     }
 

@@ -19,5 +19,9 @@ pub fn run() -> Result<(), Error> {
     }
     info!("Initialized in {}us", init_instant.elapsed().as_micros());
 
+    let update_instant = std::time::Instant::now();
+    manager.update_all_mods(1000.0 / 16.0)?;
+    info!("Updated in {}us", update_instant.elapsed().as_micros());
+
     Ok(())
 }
