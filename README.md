@@ -23,6 +23,11 @@ Build occurs in two stages: main executable and mods. Mods are built through the
  
 Make sure you have [rust](https://www.rust-lang.org/tools/install), [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html), and [wasm-tools](https://github.com/bytecodealliance/wasm-tools?tab=readme-ov-file#installation) installed on your machine.
 
+Install `wasm32-unknown-unknown` build target with:
+```shell
+rustup target add wasm32-unknown-unknown
+```
+
 Run with:
 ```shell
 RUST_LOG=info cargo run
