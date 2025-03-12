@@ -1,10 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/*",
+    "crates/mod-manager",
 ]
 exclude = [
-    "crates",
     "mods",
 ]
 
@@ -25,20 +24,10 @@ edition = "2021"
 build = "build.rs"
 
 [dependencies]
-common = { path = "crates/common" }
 mod-manager = { path = "crates/mod-manager" }
-
-serde = { workspace = true }
-serde_json = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-
-[build-dependencies]
-notify = { workspace = true }
-anyhow = { workspace = true }
-walkdir = "2.4.0"
-cargo_metadata = "0.18.1"
 
 [profile.release]
 opt-level = 3

@@ -1,8 +1,10 @@
 mod loader;
+mod mod_context;
 mod registry;
 
+pub use mod_context::{ModContext, ModInfo, ModInterface};
+
 use anyhow::{Context, Result};
-use common::{ModContext, ModInfo, ModInterface};
 use loader::ModLoader;
 use registry::ModRegistry;
 use std::path::Path;

@@ -1,24 +1,28 @@
+use super::{ModContext, ModInfo, ModInterface};
 use crate::registry::ModRegistry;
 use anyhow::{Context, Result};
-use common::{ModContext, ModInfo, ModInterface};
-use std::path::Path;
-use std::sync::{Arc, Mutex};
-use tracing::{debug, debug_span, error, info};
+use std::{
+    cell::RefCell,
+    path::Path,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
+use tracing::{debug, debug_span, error};
 use wasm_component_layer::*;
+use wasmi_runtime_layer::Engine as WasmEngine;
 
 pub struct ModLoader {
-    //engine: Engine,
-    //registry: Arc<Mutex<ModRegistry>>,
+    engine: Engine<WasmEngine>,
+    registry: Arc<Mutex<ModRegistry>>,
 }
 
 impl ModLoader {
-    pub fn new(_registry: Arc<Mutex<ModRegistry>>) -> Result<Self> {
-        //let engine = Engine::default();
-        //Ok(Self { engine, registry })
-        Ok(Self {})
+    pub fn new(registry: Arc<Mutex<ModRegistry>>) -> Result<Self> {
+        let engine = Engine::new(WasmEngine::default());
+        Ok(Self { engine, registry })
     }
 
-    pub fn load_mod(&self, path: &Path, _context: &ModContext) -> Result<ModInfo> {
+    pub fn load_mod(&mut self, path: &Path, _context: &ModContext) -> Result<ModInfo> {
         let span = debug_span!(
             "load_mod",
             file = path
@@ -34,9 +38,8 @@ impl ModLoader {
         let bytes = std::fs::read(path)
             .with_context(|| format!("Failed to read file: {}", path.display()))?;
 
-        let engine = Engine::new(wasmi_runtime_layer::Engine::default());
-        let mut store = Store::new(&engine, ());
-        let component = match Component::new(&engine, bytes.as_slice()) {
+        let mut store = Store::new(&self.engine, ());
+        let component = match Component::new(&self.engine, bytes.as_slice()) {
             Ok(component) => component,
             Err(e) => {
                 error!("Failed to create component: {}", e);
@@ -69,27 +72,80 @@ impl ModLoader {
             .unwrap();
 
         let instance = linker.instantiate(&mut store, &component).unwrap();
-        let interface = instance
-            .exports()
-            .instance(&"test:guest/foo".try_into().unwrap())
-            .unwrap();
+        let mod_info = ModInfo::default();
+        let mod_wrapper = WasmModWrapper::new(store, instance, mod_info.clone());
+        let mut registry = self.registry.lock().unwrap();
+        registry.register_mod(&mod_info.id, Box::new(mod_wrapper))?;
+
+        Ok(mod_info)
+    }
+
+    pub fn unload_mod(&self, mod_id: &str) -> Result<()> {
+        let mut registry = self.registry.lock().unwrap();
+
+        if let Some(mod_instance) = registry.get_mut_mod(mod_id) {
+            mod_instance.shutdown().expect("Failed to shutdown mod");
+        }
+        registry.unregister_mod(mod_id);
+
+        Ok(())
+    }
+}
+
+struct WasmModWrapper<'a> {
+    store: Store<(), WasmEngine>,
+    instance: Rc<Instance>,
+    interface_cache: RefCell<Option<&'a ExportInstance>>,
+    info: ModInfo,
+}
+
+impl<'a> WasmModWrapper<'a> {
+    fn new(store: Store<(), WasmEngine>, instance: Instance, info: ModInfo) -> Self {
+        let instance_rc = Rc::new(instance);
+
+        Self {
+            store,
+            instance: instance_rc,
+            interface_cache: RefCell::new(None),
+            info,
+        }
+    }
+
+    fn get_interface(&self) -> &ExportInstance {
+        if self.interface_cache.borrow().is_none() {
+            let interface = self
+                .instance
+                .exports()
+                .instance(&"test:guest/foo".try_into().unwrap())
+                .unwrap();
+
+            *self.interface_cache.borrow_mut() = Some(unsafe { std::mem::transmute(interface) });
+        }
+
+        self.interface_cache.borrow().unwrap()
+    }
+}
+
+impl<'a> ModInterface for WasmModWrapper<'a> {
+    fn init(&mut self, _context: ModContext) -> Result<(), String> {
+        let resource_constructor = self.get_interface().func("[constructor]bar").unwrap();
+        let method_bar_value = self.get_interface().func("[method]bar.value").unwrap();
+        let method_increment = self.get_interface().func("[method]bar.increment").unwrap();
 
         let mut results = vec![Value::Bool(false)];
-        let resource_constructor = interface.func("[constructor]bar").unwrap();
         resource_constructor
-            .call(&mut store, &[Value::S32(42)], &mut results)
+            .call(&mut self.store, &[Value::S32(42)], &mut results)
             .unwrap();
         let resource = match results[0] {
             Value::Own(ref resource) => resource.clone(),
             _ => panic!("Unexpected result type"),
         };
-        let borrow_res = resource.borrow(store.as_context_mut()).unwrap();
+        let borrow_res = resource.borrow(self.store.as_context_mut()).unwrap();
         let arguments = vec![Value::Borrow(borrow_res)];
 
         let mut results = vec![Value::S32(0)];
-        let method_bar_value = interface.func("[method]bar.value").unwrap();
         method_bar_value
-            .call(&mut store, &arguments, &mut results)
+            .call(&mut self.store, &arguments, &mut results)
             .unwrap();
         match results[0] {
             Value::S32(v) => {
@@ -101,15 +157,13 @@ impl ModLoader {
         }
 
         let mut results = vec![];
-        let method_increment = interface.func("[method]bar.increment").unwrap();
         method_increment
-            .call(&mut store, &arguments, &mut results)
+            .call(&mut self.store, &arguments, &mut results)
             .unwrap();
 
         let mut results = vec![Value::S32(0)];
-        let method_bar_value = interface.func("[method]bar.value").unwrap();
         method_bar_value
-            .call(&mut store, &arguments, &mut results)
+            .call(&mut self.store, &arguments, &mut results)
             .unwrap();
         match results[0] {
             Value::S32(v) => {
@@ -120,78 +174,16 @@ impl ModLoader {
             _ => panic!("Unexpected result type"),
         }
 
-        let mod_info = ModInfo::default();
-
-        // Create a mod wrapper that handles the WASM instance
-        let mut mod_wrapper = WasmModWrapper {
-            _instance: instance,
-            //store,
-            info: mod_info.clone(),
-        };
-
-        match mod_wrapper.call_info() {
-            Ok(_) => {}
-            Err(e) => {
-                error!("Failed to call info function: {}", e);
-            }
-        }
-
-        // Register the mod
-        //let mut registry = self.registry.lock().unwrap();
-        //registry.register_mod(&mod_info.id, Box::new(mod_wrapper))?;
-
-        Ok(mod_info)
-    }
-
-    pub fn unload_mod(&self, _mod_id: &str) -> Result<()> {
-        //let mut registry = self.registry.lock().unwrap();
-        //
-        //// Get the mod and call shutdown before unregistering
-        //if let Some(mod_instance) = registry.get_mut_mod(mod_id) {
-        //    mod_instance.shutdown().expect("Failed to shutdown mod");
-        //}
-        //
-        //registry.unregister_mod(mod_id);
-        Ok(())
-    }
-}
-
-// A wrapper to handle WASM module instances
-struct WasmModWrapper {
-    _instance: Instance,
-    //store: Store<()>,
-    info: ModInfo,
-}
-
-impl ModInterface for WasmModWrapper {
-    fn init(&mut self, _context: ModContext) -> Result<(), String> {
-        //let host = Host_::new(&mut self.store, &mut self.instance)
-        //    .map_err(|e| format!("Failed to create host binding: {}", e))?;
-        //host.call_init(&mut self.store)
-        //    .map_err(|e| format!("Failed to call info function: {}", e))?;
-
         Ok(())
     }
 
     fn call_info(&mut self) -> Result<(), String> {
-        //let host = Host_::new(&mut self.store, &self.instance)
-        //    .map_err(|e| format!("Failed to create host binding: {}", e))?;
-        //let result = host
-        //    .call_info(&mut self.store)
-        //    .map_err(|e| format!("Failed to call info function: {}", e))?;
-        //println!("Result: {:#?}", result);
-
         self.info = ModInfo {
-            //id: result.id,
             id: String::from("test"),
             name: String::from("Test Mod"),
             version: "1.0".to_string(),
             author: "No name".to_string(),
             description: "A mod".to_string(),
-            //name: result.name,
-            //version: result.version,
-            //author: result.author,
-            //description: result.description,
         };
 
         Ok(())
@@ -202,18 +194,10 @@ impl ModInterface for WasmModWrapper {
     }
 
     fn update(&mut self, _delta_time: f32) -> Result<(), String> {
-        //let host = Host_::new(&mut self.store, &self.instance)
-        //    .map_err(|e| format!("Failed to create host binding: {}", e))?;
-        //host.call_update(&mut self.store)
-        //    .map_err(|e| format!("Failed to call update function: {}", e))?;
         Ok(())
     }
 
     fn shutdown(&mut self) -> Result<(), String> {
-        //let host = Host_::new(&mut self.store, &self.instance)
-        //    .map_err(|e| format!("Failed to create host binding: {}", e))?;
-        //host.call_shutdown(&mut self.store)
-        //    .map_err(|e| format!("Failed to call shutdown function: {}", e))?;
         Ok(())
     }
 }

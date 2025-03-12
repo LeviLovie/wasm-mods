@@ -1,5 +1,5 @@
+use super::ModInterface;
 use anyhow::Error;
-use common::ModInterface;
 use std::collections::HashMap;
 use tracing::{warn, warn_span};
 

@@ -1,4 +1,3 @@
-use anyhow::Result;
 use std::{env, fs, path::Path, process::Command};
 
 macro_rules! p {
@@ -7,24 +6,20 @@ macro_rules! p {
     }
 }
 
-fn main() -> Result<()> {
+fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=mods");
-    println!("cargo:rerun-if-changed=crates/common");
-    println!("cargo:rerun-if-changed=wit");
+    println!("cargo:rerun-if-changed=mods/");
+    println!("cargo:rerun-if-changed=wit/");
 
     let mods = find_mod_packages();
     for mod_ in mods {
         build_mod(mod_.0, mod_.1);
     }
-
-    Ok(())
 }
 
 fn build_mod(name: String, path: String) {
     p!("Building \"{}\"", &name);
     let build_script_path = Path::new(&path).join("build.sh");
-    // Run {path}/build.sh
     let output = Command::new("sh")
         .arg(build_script_path.to_str().unwrap().to_string())
         .current_dir(&path)
