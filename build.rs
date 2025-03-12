@@ -22,16 +22,21 @@ fn main() -> Result<()> {
 }
 
 fn build_mod(name: String, path: String) {
-    p!("Building `{}`", &name);
+    p!("Building \"{}\"", &name);
     let build_script_path = Path::new(&path).join("build.sh");
     // Run {path}/build.sh
-    let status = Command::new("sh")
+    let output = Command::new("sh")
         .arg(build_script_path.to_str().unwrap().to_string())
         .current_dir(&path)
-        .status()
-        .expect("Failed to run build.sh");
-    if !status.success() {
-        p!("Failed to build `{}`: {}", &name, status);
+        .output()
+        .expect("Failed to run build script");
+    if !output.status.success() {
+        p!(
+            "Failed to build \"{}\": {}. Run \"cd {} && sh build.sh\" to debug",
+            &name,
+            output.status,
+            &path
+        );
         return;
     }
 

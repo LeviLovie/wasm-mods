@@ -6,15 +6,6 @@ use std::sync::{Arc, Mutex};
 use tracing::{debug, debug_span, error, info};
 use wasm_component_layer::*;
 
-//wasmtime::component::bindgen!("host" in "../../wit/host.wit");
-//
-//impl Host_Imports for ComponentRunStates {
-//    fn print(&mut self, msg: String) -> () {
-//        println!("{}", msg);
-//        ()
-//    }
-//}
-
 pub struct ModLoader {
     //engine: Engine,
     //registry: Arc<Mutex<ModRegistry>>,
@@ -52,25 +43,82 @@ impl ModLoader {
                 return Err(e);
             }
         };
-        let linker = Linker::default();
-        let instance = linker.instantiate(&mut store, &component)?;
+        let mut linker = Linker::default();
+        let host_interface = linker
+            .define_instance("test:guest/log".try_into().unwrap())
+            .unwrap();
+
+        host_interface
+            .define_func(
+                "log",
+                Func::new(
+                    &mut store,
+                    FuncType::new([ValueType::String], []),
+                    move |_, params, _results| {
+                        let params = match &params[0] {
+                            Value::String(s) => s,
+                            _ => panic!("Unexpected parameter type"),
+                        };
+
+                        println!("[HostLog] log");
+                        println!(" └ {}", params.to_string());
+                        Ok(())
+                    },
+                ),
+            )
+            .unwrap();
+
+        let instance = linker.instantiate(&mut store, &component).unwrap();
         let interface = instance
             .exports()
             .instance(&"test:guest/foo".try_into().unwrap())
             .unwrap();
 
-        let select_nth = interface
-            .func("select-nth")
-            .unwrap()
-            .typed::<(Vec<String>, u32), String>()?;
-        let example = ["a", "b", "c"]
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>();
-        info!(
-            "Calling select-nth({example:?}, 1) == {}",
-            select_nth.call(&mut store, (example.clone(), 1)).unwrap()
-        );
+        let mut results = vec![Value::Bool(false)];
+        let resource_constructor = interface.func("[constructor]bar").unwrap();
+        resource_constructor
+            .call(&mut store, &[Value::S32(42)], &mut results)
+            .unwrap();
+        let resource = match results[0] {
+            Value::Own(ref resource) => resource.clone(),
+            _ => panic!("Unexpected result type"),
+        };
+        let borrow_res = resource.borrow(store.as_context_mut()).unwrap();
+        let arguments = vec![Value::Borrow(borrow_res)];
+
+        let mut results = vec![Value::S32(0)];
+        let method_bar_value = interface.func("[method]bar.value").unwrap();
+        method_bar_value
+            .call(&mut store, &arguments, &mut results)
+            .unwrap();
+        match results[0] {
+            Value::S32(v) => {
+                println!("[ResultLog]");
+                println!(" └ bar.value() = {}", v);
+                assert_eq!(v, 42);
+            }
+            _ => panic!("Unexpected result type"),
+        }
+
+        let mut results = vec![];
+        let method_increment = interface.func("[method]bar.increment").unwrap();
+        method_increment
+            .call(&mut store, &arguments, &mut results)
+            .unwrap();
+
+        let mut results = vec![Value::S32(0)];
+        let method_bar_value = interface.func("[method]bar.value").unwrap();
+        method_bar_value
+            .call(&mut store, &arguments, &mut results)
+            .unwrap();
+        match results[0] {
+            Value::S32(v) => {
+                println!("[ResultLog]");
+                println!(" └ bar.value() = {}", v);
+                assert_eq!(v, 43);
+            }
+            _ => panic!("Unexpected result type"),
+        }
 
         let mod_info = ModInfo::default();
 

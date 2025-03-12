@@ -1,9 +1,19 @@
 package test:guest;
 
 interface foo {
-    select-nth: func(x: list<string>, n: u32) -> string;
+    resource bar {
+        constructor(value: s32);
+
+        increment: func();
+        value: func() -> s32;
+    }
 }
 
-world guest {
+interface log {
+    log: func(message: string);
+}
+
+world example {
+    import log;
     export foo;
 }
