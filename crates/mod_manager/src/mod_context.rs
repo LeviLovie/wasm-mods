@@ -1,3 +1,5 @@
+use anyhow::Error;
+
 #[derive(Debug, Clone)]
 pub struct ModInfo {
     pub id: String,
@@ -26,9 +28,9 @@ pub struct ModContext {
 }
 
 pub trait ModInterface {
-    fn call_info(&mut self) -> Result<(), String>;
+    fn call_info(&mut self) -> Result<(), Error>;
     fn get_info(&self) -> ModInfo;
-    fn init(&mut self, context: ModContext) -> Result<(), String>;
-    fn update(&mut self, delta_time: f32) -> Result<(), String>;
-    fn shutdown(&mut self) -> Result<(), String>;
+    fn init(&mut self, context: ModContext) -> Result<(), Error>;
+    fn update(&mut self, delta_time: f32) -> Result<(), Error>;
+    fn shutdown(&mut self) -> Result<(), Error>;
 }

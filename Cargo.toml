@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/mod_manager", "crates/mod_macros",
+    "crates/mod_manager", "crates/mod_macros", "crates/utils",
 ]
 exclude = [
     "mods",
@@ -22,9 +22,9 @@ build = "build.rs"
 
 [dependencies]
 mod_manager = { path = "crates/mod_manager" }
-anyhow = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 [profile.release]
 opt-level = 3

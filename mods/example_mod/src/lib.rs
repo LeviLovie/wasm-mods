@@ -9,7 +9,7 @@ use std::cell::RefCell;
 impl GuestData for Data {
     fn new() -> Self {
         let val = 42;
-        log(&format!("Creating new Component with value: {}", val));
+        log("Creating new Data");
 
         Data {
             val: RefCell::new(val),
@@ -17,6 +17,7 @@ impl GuestData for Data {
     }
 
     fn value(&self) -> i32 {
+        log("Updating Data");
         *self.val.borrow()
     }
 }
