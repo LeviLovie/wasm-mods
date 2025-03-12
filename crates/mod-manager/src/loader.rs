@@ -140,7 +140,6 @@ impl ModLoader {
         //let mut registry = self.registry.lock().unwrap();
         //registry.register_mod(&mod_info.id, Box::new(mod_wrapper))?;
 
-        info!("Loaded mod: {}", mod_info.name);
         Ok(mod_info)
     }
 
