@@ -1,5 +1,5 @@
 use super::{ModContext, ModInfo, ModInterface};
-use crate::registry::ModRegistry;
+use crate::{callback::CallbackRegistry, registry::ModRegistry};
 use anyhow::{Error, Result};
 use std::{
     cell::RefCell,
@@ -15,12 +15,18 @@ use wasmi_runtime_layer::Engine as WasmEngine;
 pub struct ModLoader {
     engine: Engine<WasmEngine>,
     registry: Arc<Mutex<ModRegistry>>,
+    callbacks: Arc<Mutex<CallbackRegistry>>,
 }
 
 impl ModLoader {
-    pub fn new(registry: Arc<Mutex<ModRegistry>>) -> Self {
+    pub fn new(registry: Arc<Mutex<ModRegistry>>, callbacks: Arc<Mutex<CallbackRegistry>>) -> Self {
         let engine = Engine::new(WasmEngine::default());
-        Self { engine, registry }
+
+        Self {
+            engine,
+            registry,
+            callbacks,
+        }
     }
 
     pub fn load_mod(&mut self, path: &Path, _context: &ModContext) -> Result<ModInfo, Error> {
