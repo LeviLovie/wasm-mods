@@ -7,6 +7,9 @@ pub struct ModRegistry {
     mods: HashMap<String, Box<dyn ModInterface>>,
 }
 
+unsafe impl Send for ModRegistry {}
+unsafe impl Sync for ModRegistry {}
+
 impl ModRegistry {
     pub fn new() -> Self {
         Self {

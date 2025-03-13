@@ -29,6 +29,7 @@ pub fn create_mod(input: TokenStream) -> TokenStream {
             },
         });
         use crate::exports::module::guest::events::*;
+        use crate::module::guest::structures::{register_structure, unregister_structure};
         use crate::module::guest::log::log;
 
         pub struct Events {}

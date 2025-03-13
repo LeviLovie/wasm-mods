@@ -20,7 +20,7 @@ pub struct ModManager {
     loader: ModLoader,
     mods_dir: String,
     context: ModContext,
-    callbacks: Arc<Mutex<CallbackRegistry>>,
+    _callbacks: Arc<Mutex<CallbackRegistry>>,
 }
 
 impl ModManager {
@@ -34,7 +34,7 @@ impl ModManager {
             loader,
             mods_dir: mods_dir.to_string(),
             context,
-            callbacks,
+            _callbacks: callbacks,
         })
     }
 

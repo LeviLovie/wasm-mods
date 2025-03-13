@@ -16,7 +16,13 @@ interface log {
     log: func(message: string);
 }
 
+interface structures {
+    register-structure: func(id: string, type-name: string, data: string) -> bool;
+    unregister-structure: func(id: string) -> bool;
+}
+
 world module {
     import log;
+    import structures;
     export events;
 }
