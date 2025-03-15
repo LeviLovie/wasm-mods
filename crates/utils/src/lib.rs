@@ -46,4 +46,14 @@ pub mod logging {
             Ok(self.unwrap())
         }
     }
+
+    pub trait StringAnyhow<T> {
+        fn anyhow(self) -> anyhow::Result<T, anyhow::Error>;
+    }
+
+    impl<T> StringAnyhow<T> for std::result::Result<T, String> {
+        fn anyhow(self) -> anyhow::Result<T, anyhow::Error> {
+            self.map_err(|e| Error::msg(e))
+        }
+    }
 }

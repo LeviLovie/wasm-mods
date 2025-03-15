@@ -20,6 +20,7 @@ proc-macro2 = "1.0.94"
 quote = "1.0.40"
 syn = "2.0.100"
 rmp-serde = "1.3.0"
+sdl2 = "0.37.0"
 serde = { version = "1.0.219", features = ["derive"] }
 
 [package]
@@ -33,6 +34,8 @@ mod_manager = { path = "crates/mod_manager" }
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+sdl2.workspace = true
+utils = { path = "crates/utils" }
 
 [profile.release]
 opt-level = 3

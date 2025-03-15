@@ -19,7 +19,7 @@ interface utils {
 }
 
 interface graphics {
-    draw-debug: func();
+    draw-rect: func(x: f32, y: f32, w: f32, h: f32);
 }
 
 world main {

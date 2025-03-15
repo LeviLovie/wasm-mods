@@ -23,11 +23,19 @@ impl<T> Storage<T> {
     pub fn len(&self) -> usize {
         self.values.len()
     }
+
+    pub fn iter(&self) -> std::slice::Iter<T> {
+        self.values.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<T> {
+        self.values.iter_mut()
+    }
 }
 
 #[derive(Debug)]
 pub struct Storages {
-    pub textures: Storage<u32>,
+    pub textures: Storage<(u32, u32, u32, u32)>,
 }
 
 impl Storages {
