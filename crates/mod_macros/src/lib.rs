@@ -1,6 +1,9 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse::Parse, parse::ParseStream, parse_macro_input, LitStr, Result};
+use syn::{
+    parse::{Parse, ParseStream},
+    parse_macro_input, LitStr, Result,
+};
 
 struct WitBindgenArgs {
     path: LitStr,
@@ -9,31 +12,31 @@ struct WitBindgenArgs {
 impl Parse for WitBindgenArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         let path = input.parse::<LitStr>()?;
+
         Ok(WitBindgenArgs { path })
     }
 }
 
 #[proc_macro]
 pub fn create_mod(input: TokenStream) -> TokenStream {
-    // Parse the path argument
     let args = parse_macro_input!(input as WitBindgenArgs);
     let path_str = args.path.value();
 
-    // Generate the code
     let expanded = quote! {
         wit_bindgen::generate!({
             path: #path_str,
             exports: {
-                "module:guest/events": Events,
-                "module:guest/events/data": Data,
+                "module:guest/general": General,
+                "module:guest/general/main": Main,
             },
         });
-        use crate::exports::module::guest::events::*;
-        use crate::module::guest::log::log;
+        use crate::exports::module::guest::general::*;
+        use crate::module::guest::graphics::*;
+        use crate::module::guest::utils::*;
 
-        pub struct Events {}
+        pub struct General {}
 
-        impl Guest for Events {
+        impl Guest for General {
             fn info() -> Vec<String> {
                 let version = env!("CARGO_PKG_VERSION").to_string();
                 let id = env!("CARGO_PKG_NAME").to_string();

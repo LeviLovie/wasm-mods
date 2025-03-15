@@ -10,4 +10,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 wit-bindgen = "0.16.0"
+types = { path = "../../crates/types" }
 mod_macros = { path = "../../crates/mod_macros" }

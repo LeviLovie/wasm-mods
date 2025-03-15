@@ -1,5 +1,4 @@
-use super::{ModContext, ModInfo, ModInterface};
-use crate::registry::ModRegistry;
+use super::{funcs, ModContext, ModInfo, ModInterface, ModRegistry, Storages};
 use anyhow::{Error, Result};
 use std::{
     cell::RefCell,
@@ -7,20 +6,27 @@ use std::{
     rc::Rc,
     sync::{Arc, Mutex},
 };
-use tracing::{debug, debug_span, error_span, info, info_span};
+use tracing::{debug, debug_span, error_span};
 use utils::logging::*;
 use wasm_component_layer::*;
 use wasmi_runtime_layer::Engine as WasmEngine;
 
+#[derive(Clone)]
 pub struct ModLoader {
     engine: Engine<WasmEngine>,
+    storages: Arc<Mutex<Storages>>,
     registry: Arc<Mutex<ModRegistry>>,
 }
 
 impl ModLoader {
-    pub fn new(registry: Arc<Mutex<ModRegistry>>) -> Self {
+    pub fn new(registry: Arc<Mutex<ModRegistry>>, storages: Arc<Mutex<Storages>>) -> Self {
         let engine = Engine::new(WasmEngine::default());
-        Self { engine, registry }
+
+        Self {
+            engine,
+            storages,
+            registry,
+        }
     }
 
     pub fn load_mod(&mut self, path: &Path, _context: &ModContext) -> Result<ModInfo, Error> {
@@ -42,31 +48,7 @@ impl ModLoader {
         let component =
             Component::new(&self.engine, bytes.as_slice()).log_msg("Failed to create component")?;
         let mut linker = Linker::default();
-        let host_interface = linker
-            .define_instance("module:guest/log".try_into().unwrap())
-            .log_msg("Failed to define instance")?;
-
-        host_interface
-            .define_func(
-                "log",
-                Func::new(
-                    &mut store,
-                    FuncType::new([ValueType::String], []),
-                    move |_, params, _results| {
-                        let params = match &params[0] {
-                            Value::String(s) => s,
-                            _ => panic!("Unexpected parameter type"),
-                        };
-
-                        let span = info_span!("mod_log");
-                        let _guard = span.enter();
-
-                        info!("{}", params);
-                        Ok(())
-                    },
-                ),
-            )
-            .log()?;
+        funcs::register(&mut linker, &mut store, self.storages.clone()).log()?;
 
         let instance = linker.instantiate(&mut store, &component).log()?;
         let mod_info = ModInfo::default();
@@ -123,7 +105,7 @@ impl<'a> WasmModWrapper<'a> {
             let interface = self
                 .instance
                 .exports()
-                .instance(&"module:guest/events".try_into().unwrap())
+                .instance(&"module:guest/general".try_into().unwrap())
                 .expect("Interface not found");
 
             *self.interface_cache.borrow_mut() = Some(unsafe { std::mem::transmute(interface) });
@@ -140,12 +122,12 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
 
         let data_constructor = self
             .get_interface()
-            .func("[constructor]data")
-            .check_log("Unable to get \"data\" constructor from mod")?;
+            .func("[constructor]main")
+            .check_log("Unable to get \"main\" constructor from mod")?;
         let data_init = self
             .get_interface()
-            .func("[method]data.init")
-            .check_log("Unable to get \"data.init\" from mod")?;
+            .func("[method]main.init")
+            .check_log("Unable to get \"main.init\" from mod")?;
 
         let mut results = vec![Value::Bool(false)];
         data_constructor
@@ -226,8 +208,8 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
 
         let method_data_update = self
             .get_interface()
-            .func("[method]data.update")
-            .check_log("Unable to get \"data.update\" from mod")?;
+            .func("[method]main.update")
+            .check_log("Unable to get \"main.update\" from mod")?;
         let mut arguments = self.arguments.clone();
         arguments.push(Value::F32(delta_time));
         method_data_update
@@ -237,14 +219,27 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
         Ok(())
     }
 
+    fn draw(&mut self) -> Result<(), Error> {
+        let span = error_span!("draw", mod_id = self.info.id.clone());
+        let _guard = span.enter();
+        let method_data_draw = self
+            .get_interface()
+            .func("[method]main.draw")
+            .check_log("Unable to get \"main.draw\" from mod")?;
+        method_data_draw
+            .call(&mut self.store, &self.arguments, &mut [])
+            .log()?;
+        Ok(())
+    }
+
     fn shutdown(&mut self) -> Result<(), Error> {
         let span = error_span!("shutdown", mod_id = self.info.id.clone());
         let _guard = span.enter();
 
         let method_data_shutdown = self
             .get_interface()
-            .func("[method]data.shutdown")
-            .check_log("Unable to get \"data.shutdown\" from mod")?;
+            .func("[method]main.shutdown")
+            .check_log("Unable to get \"main.shutdown\" from mod")?;
         method_data_shutdown
             .call(&mut self.store, &self.arguments, &mut [])
             .log()?;

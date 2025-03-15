@@ -32,5 +32,6 @@ pub trait ModInterface {
     fn get_info(&self) -> ModInfo;
     fn init(&mut self, context: ModContext) -> Result<(), Error>;
     fn update(&mut self, delta_time: f32) -> Result<(), Error>;
+    fn draw(&mut self) -> Result<(), Error>;
     fn shutdown(&mut self) -> Result<(), Error>;
 }

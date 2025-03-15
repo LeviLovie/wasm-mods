@@ -1,22 +1,30 @@
 package module:guest;
 
-interface events {
-    resource data {
+interface general {
+    resource main {
         constructor();
 
         init: func();
         update: func(delta: f32);
+        draw: func();
         shutdown: func();
     }
 
     info: func() -> list<string>;
 }
 
-interface log {
+interface utils {
     log: func(message: string);
+    fatal: func(message: string);
 }
 
-world module {
-    import log;
-    export events;
+interface graphics {
+    draw-debug: func();
+}
+
+world main {
+    import utils;
+    import graphics;
+
+    export general;
 }

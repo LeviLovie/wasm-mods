@@ -1,8 +1,11 @@
+mod funcs;
 mod loader;
 mod mod_context;
 mod registry;
+mod storage;
 pub use mod_context::{ModContext, ModInfo, ModInterface};
 
+use crate::storage::Storages;
 use anyhow::{Context, Error, Result};
 use loader::ModLoader;
 use registry::ModRegistry;
@@ -18,18 +21,21 @@ pub struct ModManager {
     loader: ModLoader,
     mods_dir: String,
     context: ModContext,
+    storages: Arc<Mutex<Storages>>,
 }
 
 impl ModManager {
     pub fn new(mods_dir: &str, context: ModContext) -> Result<Self, Error> {
         let registry = Arc::new(Mutex::new(ModRegistry::new()));
-        let loader = ModLoader::new(Arc::clone(&registry));
+        let storages = Arc::new(Mutex::new(Storages::new()));
+        let loader = ModLoader::new(Arc::clone(&registry), storages.clone());
 
         Ok(Self {
             registry,
             loader,
             mods_dir: mods_dir.to_string(),
             context,
+            storages,
         })
     }
 
@@ -146,5 +152,19 @@ impl ModManager {
                 .log_msg("Failed to init mod")?;
         }
         Ok(())
+    }
+
+    pub fn call_draw(&mut self) -> Result<()> {
+        let span = error_span!("call_draw");
+        let _guard = span.enter();
+        let mut registry = self.registry.lock().unwrap();
+        for (_, mod_instance) in registry.mods_mut_iter() {
+            mod_instance.draw().log_msg("Failed to draw mod")?;
+        }
+        Ok(())
+    }
+
+    pub fn storages(&self) -> Arc<Mutex<Storages>> {
+        self.storages.clone()
     }
 }

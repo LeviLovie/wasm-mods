@@ -1,22 +1,29 @@
 mod_macros::create_mod!("../../wit/module.wit");
 
-pub struct Data {}
+use std::cell::RefCell;
 
-impl GuestData for Data {
+pub struct Main {
+    updates: RefCell<u32>,
+}
+
+impl GuestMain for Main {
     fn new() -> Self {
-        log("Constructing");
-        Data {}
+        Main {
+            updates: RefCell::new(0),
+        }
     }
 
-    fn init(&self) {
-        log("Inititalizing");
+    fn init(&self) {}
+
+    fn update(&self, _: f32) {
+        *self.updates.borrow_mut() += 1;
     }
 
-    fn update(&self, delta: f32) {
-        log(&format!("Updating: {}ms", delta));
+    fn draw(&self) {
+        for _ in 0..*self.updates.borrow() {
+            draw_debug();
+        }
     }
 
-    fn shutdown(&self) {
-        log("Shutting down");
-    }
+    fn shutdown(&self) {}
 }
