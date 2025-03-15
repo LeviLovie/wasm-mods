@@ -12,8 +12,9 @@ interface general {
     info: func() -> list<string>;
 }
 
-interface log {
+interface utils {
     log: func(message: string);
+    fatal: func(message: string);
 }
 
 interface structures {
@@ -22,7 +23,7 @@ interface structures {
 }
 
 world main {
-    import log;
+    import utils;
     import structures;
     export general;
 }

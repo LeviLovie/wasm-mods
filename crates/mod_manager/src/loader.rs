@@ -1,6 +1,4 @@
-use super::{ModContext, ModInfo, ModInterface};
-use crate::registry::ModRegistry;
-
+use super::{funcs, ModContext, ModInfo, ModInterface, ModRegistry, Storages};
 use anyhow::{Error, Result};
 use std::{
     cell::RefCell,
@@ -16,14 +14,19 @@ use wasmi_runtime_layer::Engine as WasmEngine;
 #[derive(Clone)]
 pub struct ModLoader {
     engine: Engine<WasmEngine>,
+    storages: Arc<Mutex<Storages>>,
     registry: Arc<Mutex<ModRegistry>>,
 }
 
 impl ModLoader {
-    pub fn new(registry: Arc<Mutex<ModRegistry>>) -> Self {
+    pub fn new(registry: Arc<Mutex<ModRegistry>>, storages: Arc<Mutex<Storages>>) -> Self {
         let engine = Engine::new(WasmEngine::default());
 
-        Self { engine, registry }
+        Self {
+            engine,
+            storages,
+            registry,
+        }
     }
 
     pub fn load_mod(&mut self, path: &Path, _context: &ModContext) -> Result<ModInfo, Error> {
@@ -45,31 +48,7 @@ impl ModLoader {
         let component =
             Component::new(&self.engine, bytes.as_slice()).log_msg("Failed to create component")?;
         let mut linker = Linker::default();
-        let host_interface = linker
-            .define_instance("module:guest/log".try_into().unwrap())
-            .log_msg("Failed to define instance")?;
-
-        host_interface
-            .define_func(
-                "log",
-                Func::new(
-                    &mut store,
-                    FuncType::new([ValueType::String], []),
-                    move |_, params, _results| {
-                        let params = match &params[0] {
-                            Value::String(s) => s,
-                            _ => panic!("Unexpected parameter type"),
-                        };
-
-                        let span = info_span!("mod_log");
-                        let _guard = span.enter();
-
-                        info!("{}", params);
-                        Ok(())
-                    },
-                ),
-            )
-            .log()?;
+        funcs::register(&mut linker, &mut store, self.storages.clone()).log()?;
 
         let instance = linker.instantiate(&mut store, &component).log()?;
         let mod_info = ModInfo::default();
