@@ -1,8 +1,5 @@
 use super::{ModContext, ModInfo, ModInterface};
-use crate::{
-    callback::{CallbackRegistry, ModStructure},
-    registry::ModRegistry,
-};
+use crate::registry::ModRegistry;
 
 use anyhow::{Error, Result};
 use std::{
@@ -20,18 +17,13 @@ use wasmi_runtime_layer::Engine as WasmEngine;
 pub struct ModLoader {
     engine: Engine<WasmEngine>,
     registry: Arc<Mutex<ModRegistry>>,
-    callbacks: Arc<Mutex<CallbackRegistry>>,
 }
 
 impl ModLoader {
-    pub fn new(registry: Arc<Mutex<ModRegistry>>, callbacks: Arc<Mutex<CallbackRegistry>>) -> Self {
+    pub fn new(registry: Arc<Mutex<ModRegistry>>) -> Self {
         let engine = Engine::new(WasmEngine::default());
 
-        Self {
-            engine,
-            registry,
-            callbacks,
-        }
+        Self { engine, registry }
     }
 
     pub fn load_mod(&mut self, path: &Path, _context: &ModContext) -> Result<ModInfo, Error> {
@@ -79,97 +71,9 @@ impl ModLoader {
             )
             .log()?;
 
-        let host_struct_interface = linker
-            .define_instance("module:guest/structures".try_into().unwrap())
-            .log_msg("Failed to define structures instance")?;
-        let callbacks_clone = self.callbacks.clone();
-        host_struct_interface
-            .define_func(
-                "register-structure",
-                Func::new(
-                    &mut store,
-                    FuncType::new(
-                        [ValueType::String, ValueType::String, ValueType::String],
-                        [ValueType::Bool],
-                    ),
-                    move |_, params, results| {
-                        let id = match &params[0] {
-                            Value::String(s) => s.to_string(),
-                            _ => panic!("Unexpected parameter type for id"),
-                        };
-
-                        let type_name = match &params[1] {
-                            Value::String(s) => s.to_string(),
-                            _ => panic!("Unexpected parameter type for type_name"),
-                        };
-
-                        let data = match &params[2] {
-                            Value::String(s) => s.to_string(),
-                            _ => panic!("Unexpected parameter type for data"),
-                        };
-
-                        let span = debug_span!(
-                            "register_structure",
-                            id = id.clone(),
-                            type_name = type_name.clone()
-                        );
-                        let _guard = span.enter();
-
-                        // Create a ModStructure that implements Registerable
-                        let structure = Box::new(ModStructure {
-                            id: id.clone(),
-                            type_name: type_name.clone(),
-                            data,
-                        });
-
-                        let mut reg = callbacks_clone.lock().unwrap();
-                        let success = reg.register(structure).is_ok();
-                        results[0] = Value::Bool(success);
-
-                        debug!(
-                            "Structure registration: {}",
-                            if success { "success" } else { "failed" }
-                        );
-                        Ok(())
-                    },
-                ),
-            )
-            .log()?;
-
-        let structure_registry_unregister = self.callbacks.clone();
-        host_struct_interface
-            .define_func(
-                "unregister-structure",
-                Func::new(
-                    &mut store,
-                    FuncType::new([ValueType::String], [ValueType::Bool]),
-                    move |_, params, results| {
-                        let id = match &params[0] {
-                            Value::String(s) => s.to_string(),
-                            _ => panic!("Unexpected parameter type for id"),
-                        };
-
-                        let span = debug_span!("unregister_structure", id = id.clone());
-                        let _guard = span.enter();
-
-                        let mut reg = structure_registry_unregister.lock().unwrap();
-                        let success = reg.unregister(&id).is_ok();
-                        results[0] = Value::Bool(success);
-
-                        debug!(
-                            "Structure unregistration: {}",
-                            if success { "success" } else { "failed" }
-                        );
-                        Ok(())
-                    },
-                ),
-            )
-            .log()?;
-
         let instance = linker.instantiate(&mut store, &component).log()?;
         let mod_info = ModInfo::default();
-        let mut mod_wrapper =
-            WasmModWrapper::new(store, instance, mod_info.clone(), self.callbacks.clone());
+        let mut mod_wrapper = WasmModWrapper::new(store, instance, mod_info.clone());
         mod_wrapper.call_info().log()?;
         let mut registry = self.registry.lock().unwrap();
         registry.register_mod(&mod_info.id, Box::new(mod_wrapper))?;
@@ -202,16 +106,10 @@ struct WasmModWrapper<'a> {
     interface_cache: RefCell<Option<&'a ExportInstance>>,
     info: ModInfo,
     arguments: Vec<Value>,
-    callbacks: Arc<Mutex<CallbackRegistry>>,
 }
 
 impl<'a> WasmModWrapper<'a> {
-    fn new(
-        store: Store<(), WasmEngine>,
-        instance: Instance,
-        info: ModInfo,
-        callbacks: Arc<Mutex<CallbackRegistry>>,
-    ) -> Self {
+    fn new(store: Store<(), WasmEngine>, instance: Instance, info: ModInfo) -> Self {
         let instance_rc = Rc::new(instance);
 
         Self {
@@ -220,7 +118,6 @@ impl<'a> WasmModWrapper<'a> {
             interface_cache: RefCell::new(None),
             info,
             arguments: Vec::new(),
-            callbacks,
         }
     }
 
@@ -354,11 +251,6 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
         method_data_shutdown
             .call(&mut self.store, &self.arguments, &mut [])
             .log()?;
-
-        let mod_id = self.info.id.clone();
-        let mut reg = self.callbacks.lock().unwrap();
-        reg.cleanup(&mod_id)
-            .log_msg("Failed to cleanup callbacks")?;
 
         Ok(())
     }
