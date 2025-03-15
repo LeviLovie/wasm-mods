@@ -1,23 +1,29 @@
 mod_macros::create_mod!("../../wit/module.wit");
 
-use types::Position;
+use std::cell::RefCell;
 
-pub struct Main {}
+pub struct Main {
+    updates: RefCell<u32>,
+}
 
 impl GuestMain for Main {
     fn new() -> Self {
-        let _ = Position {
-            x: 0.0,
-            y: 0.0,
-            z: 0,
-        };
-
-        Main {}
+        Main {
+            updates: RefCell::new(0),
+        }
     }
 
     fn init(&self) {}
 
-    fn update(&self, _: f32) {}
+    fn update(&self, _: f32) {
+        *self.updates.borrow_mut() += 1;
+    }
+
+    fn draw(&self) {
+        for _ in 0..*self.updates.borrow() {
+            draw_debug();
+        }
+    }
 
     fn shutdown(&self) {}
 }

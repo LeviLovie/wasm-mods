@@ -6,6 +6,7 @@ interface general {
 
         init: func();
         update: func(delta: f32);
+        draw: func();
         shutdown: func();
     }
 
@@ -17,13 +18,13 @@ interface utils {
     fatal: func(message: string);
 }
 
-interface structures {
-    register-structure: func(id: string, type-name: string, data: string) -> bool;
-    unregister-structure: func(id: string) -> bool;
+interface graphics {
+    draw-debug: func();
 }
 
 world main {
     import utils;
-    import structures;
+    import graphics;
+
     export general;
 }

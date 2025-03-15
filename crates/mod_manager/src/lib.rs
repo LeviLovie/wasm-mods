@@ -153,4 +153,18 @@ impl ModManager {
         }
         Ok(())
     }
+
+    pub fn call_draw(&mut self) -> Result<()> {
+        let span = error_span!("call_draw");
+        let _guard = span.enter();
+        let mut registry = self.registry.lock().unwrap();
+        for (_, mod_instance) in registry.mods_mut_iter() {
+            mod_instance.draw().log_msg("Failed to draw mod")?;
+        }
+        Ok(())
+    }
+
+    pub fn storages(&self) -> Arc<Mutex<Storages>> {
+        self.storages.clone()
+    }
 }

@@ -31,7 +31,7 @@ pub fn create_mod(input: TokenStream) -> TokenStream {
             },
         });
         use crate::exports::module::guest::general::*;
-        use crate::module::guest::structures::{register_structure, unregister_structure};
+        use crate::module::guest::graphics::*;
         use crate::module::guest::utils::*;
 
         pub struct General {}

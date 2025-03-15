@@ -6,7 +6,7 @@ use std::{
     rc::Rc,
     sync::{Arc, Mutex},
 };
-use tracing::{debug, debug_span, error_span, info, info_span};
+use tracing::{debug, debug_span, error_span};
 use utils::logging::*;
 use wasm_component_layer::*;
 use wasmi_runtime_layer::Engine as WasmEngine;
@@ -216,6 +216,19 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
             .call(&mut self.store, &arguments, &mut [])
             .log()?;
 
+        Ok(())
+    }
+
+    fn draw(&mut self) -> Result<(), Error> {
+        let span = error_span!("draw", mod_id = self.info.id.clone());
+        let _guard = span.enter();
+        let method_data_draw = self
+            .get_interface()
+            .func("[method]main.draw")
+            .check_log("Unable to get \"main.draw\" from mod")?;
+        method_data_draw
+            .call(&mut self.store, &self.arguments, &mut [])
+            .log()?;
         Ok(())
     }
 

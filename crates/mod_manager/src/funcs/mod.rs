@@ -1,4 +1,4 @@
-pub mod storage;
+pub mod graphics;
 pub mod util_funcs;
 
 use super::Storages;
@@ -13,7 +13,7 @@ pub fn register(
     store: &mut Store<(), WasmEngine>,
     storages: Arc<Mutex<Storages>>,
 ) -> Result<()> {
-    storage::register(linker, store, storages.clone())
+    graphics::register(linker, store, storages.clone())
         .log_msg("Failed to register storage funcs")?;
     util_funcs::register(linker, store, storages.clone())
         .log_msg("Failed to register utils funcs")?;
