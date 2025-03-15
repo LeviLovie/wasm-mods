@@ -1,6 +1,6 @@
 use anyhow::{Error, Result};
 use mod_manager::{ModContext, ModManager};
-use sdl2::{event::Event, keyboard::Keycode, pixels::Color};
+use sdl2::{event::Event, keyboard::Keycode, pixels::Color, render::BlendMode};
 use std::time::Duration;
 use tracing::info;
 use utils::logging::*;
@@ -11,8 +11,9 @@ fn main() -> Result<(), Error> {
     let video_subsystem = sdl_context.video().anyhow()?;
 
     let window = video_subsystem
-        .window("rust-sdl2 demo: Video", 800, 600)
+        .window("rust-sdl2 demo: Video", 1000, 800)
         .position_centered()
+        .resizable()
         .opengl()
         .build()
         .map_err(|e| e.to_string())
@@ -24,6 +25,7 @@ fn main() -> Result<(), Error> {
         .map_err(|e| e.to_string())
         .anyhow()?;
 
+    canvas.set_blend_mode(BlendMode::Blend);
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
     canvas.present();
@@ -64,21 +66,23 @@ fn main() -> Result<(), Error> {
         canvas.clear();
 
         {
-            let color = {
-                let storages_ref = manager.storages();
-                let storages = storages_ref.lock().unwrap();
-                storages.color.get().clone()
-            };
             let storages_ref = manager.storages();
             let mut storages = storages_ref.lock().unwrap();
             let textures = &mut storages.textures;
-            for (x, y, w, h) in textures.iter() {
-                canvas.set_draw_color(Color::RGBA(color.0, color.1, color.2, color.3));
+            for ((x, y, w, h), (r, g, b, a)) in textures.iter() {
+                canvas.set_draw_color(Color::RGBA(*r, *g, *b, *a));
                 canvas
                     .fill_rect(sdl2::rect::Rect::new(*x as i32, *y as i32, *w, *h))
                     .anyhow()?;
             }
-            storages.clear();
+        }
+        {
+            let window = canvas.window_mut();
+            let window_size = window.size();
+
+            let storages_ref = manager.storages();
+            let mut storages = storages_ref.lock().unwrap();
+            storages.clear(window_size);
         }
 
         canvas.present();

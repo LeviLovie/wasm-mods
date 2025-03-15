@@ -47,10 +47,15 @@ pub fn register(
                         _ => panic!("Unexpected parameter type"),
                     };
 
+                    let color = {
+                        let storages_ref = storages_clone.lock().unwrap();
+                        let storages = storages_ref;
+                        storages.color.get().clone()
+                    };
                     {
                         let mut storages = storages_clone.lock().unwrap();
                         let textures = &mut storages.textures;
-                        textures.add((x, y, w, h));
+                        textures.add(((x, y, w, h), color));
                     }
 
                     Ok(())

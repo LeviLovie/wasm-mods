@@ -24,9 +24,14 @@ interface graphics {
     draw-rect: func(x: f32, y: f32, w: f32, h: f32);
 }
 
+interface input {
+    get-window-size: func() -> tuple<f32, f32>;
+}
+
 world main {
     import utils;
     import graphics;
+    import input;
 
     export general;
 }

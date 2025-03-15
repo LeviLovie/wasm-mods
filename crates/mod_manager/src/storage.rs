@@ -60,8 +60,9 @@ impl<T> VecStorage<T> {
 
 #[derive(Debug)]
 pub struct Storages {
-    pub textures: VecStorage<(u32, u32, u32, u32)>,
+    pub textures: VecStorage<((u32, u32, u32, u32), (u8, u8, u8, u8))>,
     pub color: ScalStorage<(u8, u8, u8, u8)>,
+    pub window_size: ScalStorage<(u32, u32)>,
 }
 
 impl Storages {
@@ -69,11 +70,13 @@ impl Storages {
         Self {
             textures: VecStorage::new(),
             color: ScalStorage::new(),
+            window_size: ScalStorage::new(),
         }
     }
 
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self, window_size: (u32, u32)) {
         self.textures.clear();
         self.color = ScalStorage::new();
+        self.window_size.set(window_size);
     }
 }
