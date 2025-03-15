@@ -1,11 +1,9 @@
-mod callback;
 mod loader;
 mod mod_context;
 mod registry;
 pub use mod_context::{ModContext, ModInfo, ModInterface};
 
 use anyhow::{Context, Error, Result};
-use callback::CallbackRegistry;
 use loader::ModLoader;
 use registry::ModRegistry;
 use std::{
@@ -20,21 +18,18 @@ pub struct ModManager {
     loader: ModLoader,
     mods_dir: String,
     context: ModContext,
-    _callbacks: Arc<Mutex<CallbackRegistry>>,
 }
 
 impl ModManager {
     pub fn new(mods_dir: &str, context: ModContext) -> Result<Self, Error> {
         let registry = Arc::new(Mutex::new(ModRegistry::new()));
-        let callbacks = Arc::new(Mutex::new(CallbackRegistry::new()));
-        let loader = ModLoader::new(Arc::clone(&registry), Arc::clone(&callbacks));
+        let loader = ModLoader::new(Arc::clone(&registry));
 
         Ok(Self {
             registry,
             loader,
             mods_dir: mods_dir.to_string(),
             context,
-            _callbacks: callbacks,
         })
     }
 
