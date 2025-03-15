@@ -1,14 +1,12 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+#[macro_use]
+mod macros;
+mod traits;
+pub use traits::SerdeType;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+new_type! {
+    struct Position {
+        x: f32,
+        y: f32,
+        z: u32,
     }
 }
