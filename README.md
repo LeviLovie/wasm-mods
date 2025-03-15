@@ -4,7 +4,7 @@ This project is an example of how to use [wasmtime](https://wasmtime.dev/) as a 
 ## Goals
 - [x] Event system
 - [x] Internal data
-- [ ] Callbacks
+- [x] Callbacks
 - [ ] Graphics
 - [ ] Player control example
 
