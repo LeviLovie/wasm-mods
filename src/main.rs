@@ -64,11 +64,16 @@ fn main() -> Result<(), Error> {
         canvas.clear();
 
         {
-            let storages_ref = manager.storages(); // Bind to a variable
+            let color = {
+                let storages_ref = manager.storages();
+                let storages = storages_ref.lock().unwrap();
+                storages.color.get().clone()
+            };
+            let storages_ref = manager.storages();
             let mut storages = storages_ref.lock().unwrap();
             let textures = &mut storages.textures;
             for (x, y, w, h) in textures.iter() {
-                canvas.set_draw_color(Color::RGB(255, 255, 255));
+                canvas.set_draw_color(Color::RGBA(color.0, color.1, color.2, color.3));
                 canvas
                     .fill_rect(sdl2::rect::Rect::new(*x as i32, *y as i32, *w, *h))
                     .anyhow()?;

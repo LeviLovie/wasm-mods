@@ -43,6 +43,12 @@ impl GuestMain for Main {
     fn draw(&self) {
         let position = self.position.borrow();
         let size = self.size;
+        color(
+            position.0 / 800.0,
+            position.1 / 600.0,
+            1.0 - position.0 / 800.0,
+            1.0,
+        );
         draw_rect(position.0, position.1, size.0, size.1);
     }
 
