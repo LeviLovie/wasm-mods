@@ -19,12 +19,19 @@ interface utils {
 }
 
 interface graphics {
-    draw-debug: func();
+    color: func(r: f32, g: f32, b: f32, a: f32);
+    color-rgba: func(r: u8, g: u8, b: u8, a: u8);
+    draw-rect: func(x: f32, y: f32, w: f32, h: f32);
+}
+
+interface input {
+    get-window-size: func() -> tuple<f32, f32>;
 }
 
 world main {
     import utils;
     import graphics;
+    import input;
 
     export general;
 }

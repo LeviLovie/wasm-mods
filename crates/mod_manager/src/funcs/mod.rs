@@ -1,4 +1,5 @@
 pub mod graphics;
+pub mod input;
 pub mod util_funcs;
 
 use super::Storages;
@@ -15,6 +16,7 @@ pub fn register(
 ) -> Result<()> {
     graphics::register(linker, store, storages.clone())
         .log_msg("Failed to register storage funcs")?;
+    input::register(linker, store, storages.clone())?;
     util_funcs::register(linker, store, storages.clone())
         .log_msg("Failed to register utils funcs")?;
     Ok(())
