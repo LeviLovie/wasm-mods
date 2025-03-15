@@ -15,6 +15,8 @@ This project is an example of how to use [wasmtime](https://wasmtime.dev/) as a 
 * `crates` - Some packages to simplify code.
   * `mod_macros` - A few macros to make mod creation easier.
   * `mod_manager` - Abstraction for interacting with WASM packages.
+  * `utils` - Utils for development.
+  * `types` - Type defs shared between mods and game.
 
 ## Running
 Build occurs in two stages: main executable and mods. Mods are built through the `build.rs` file which runs build scripts inside mod directories and copies binaries into the `wasm` folder next to the executable.
