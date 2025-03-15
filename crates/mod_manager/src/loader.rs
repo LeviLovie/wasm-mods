@@ -229,7 +229,7 @@ impl<'a> WasmModWrapper<'a> {
             let interface = self
                 .instance
                 .exports()
-                .instance(&"module:guest/events".try_into().unwrap())
+                .instance(&"module:guest/general".try_into().unwrap())
                 .expect("Interface not found");
 
             *self.interface_cache.borrow_mut() = Some(unsafe { std::mem::transmute(interface) });
@@ -246,12 +246,12 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
 
         let data_constructor = self
             .get_interface()
-            .func("[constructor]data")
-            .check_log("Unable to get \"data\" constructor from mod")?;
+            .func("[constructor]main")
+            .check_log("Unable to get \"main\" constructor from mod")?;
         let data_init = self
             .get_interface()
-            .func("[method]data.init")
-            .check_log("Unable to get \"data.init\" from mod")?;
+            .func("[method]main.init")
+            .check_log("Unable to get \"main.init\" from mod")?;
 
         let mut results = vec![Value::Bool(false)];
         data_constructor
@@ -332,8 +332,8 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
 
         let method_data_update = self
             .get_interface()
-            .func("[method]data.update")
-            .check_log("Unable to get \"data.update\" from mod")?;
+            .func("[method]main.update")
+            .check_log("Unable to get \"main.update\" from mod")?;
         let mut arguments = self.arguments.clone();
         arguments.push(Value::F32(delta_time));
         method_data_update
@@ -349,8 +349,8 @@ impl<'a> ModInterface for WasmModWrapper<'a> {
 
         let method_data_shutdown = self
             .get_interface()
-            .func("[method]data.shutdown")
-            .check_log("Unable to get \"data.shutdown\" from mod")?;
+            .func("[method]main.shutdown")
+            .check_log("Unable to get \"main.shutdown\" from mod")?;
         method_data_shutdown
             .call(&mut self.store, &self.arguments, &mut [])
             .log()?;
