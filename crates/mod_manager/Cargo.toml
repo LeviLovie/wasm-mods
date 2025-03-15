@@ -7,5 +7,5 @@ edition = "2021"
 utils = { path = "../utils" }
 anyhow.workspace = true
 tracing.workspace = true
-wasm_component_layer = "0.1.16"
-wasmi_runtime_layer = "0.31.0"
+wasm_component_layer.workspace = true
+wasmi_runtime_layer.workspace = true

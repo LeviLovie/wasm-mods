@@ -1,5 +1,4 @@
 mod_macros::create_mod!("../../wit/module.wit");
-use crate::module::guest::*;
 
 pub struct Main {}
 
