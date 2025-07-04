@@ -11,3 +11,6 @@ crate-type = ["cdylib"]
 [dependencies]
 wit-bindgen = "0.16.0"
 mod_macros = { path = "../../crates/mod_macros" }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+uuid = { version = "1.15.1", features = ["v4", "js"] }
